@@ -1,0 +1,130 @@
+import os
+import re
+
+import allure
+import httpx
+import pytest
+from allure_commons.types import Severity
+
+from dataset import PROFILE
+
+BASE_URL = os.getenv("POKETESTS_BASE_URL", "http://localhost/api")
+
+SKIP_DATA_CANARY = os.getenv("POKETESTS_SKIP_DATA_CANARY") == "1"
+
+SEVERITY_BY_PRIORITY = {
+    "p0": Severity.BLOCKER,
+    "p1": Severity.CRITICAL,
+    "p2": Severity.NORMAL,
+    "p3": Severity.MINOR,
+}
+
+TC_ID_PATTERN = re.compile(r"TC-[A-Z]+-\d+")
+
+
+def pytest_collection_modifyitems(items):
+    for item in items:
+        for priority, severity in SEVERITY_BY_PRIORITY.items():
+            if item.get_closest_marker(priority):
+                item.add_marker(allure.severity(severity))
+                break
+
+        module = item.module.__name__.removeprefix("test_")
+        feature = module.replace("_", " ").capitalize()
+        item.add_marker(allure.feature(feature))
+
+        for tc_id in TC_ID_PATTERN.findall(item.function.__doc__ or ""):
+            item.add_marker(allure.tag(tc_id))
+
+
+@pytest.fixture(scope="session")
+def api() -> httpx.Client:
+    with httpx.Client(
+        base_url=BASE_URL.rstrip("/") + "/",
+        timeout=10.0,
+        follow_redirects=False,
+    ) as client:
+        yield client
+
+
+@pytest.fixture(scope="session", autouse=True)
+def canary(api: httpx.Client) -> None:
+    try:
+        health = api.get("health")
+    except httpx.HTTPError as exc:
+        pytest.exit(f"[canary] SUT недоступен по {BASE_URL}: {exc}", returncode=2)
+    if health.status_code != 200 or health.json().get("status") != "ok":
+        pytest.exit(
+            f"[canary] health вернул {health.status_code}: {health.text[:200]}",
+            returncode=2,
+        )
+
+    if not SKIP_DATA_CANARY:
+        listing = api.get("pokemon/", params={"limit": 1})
+        total = listing.json().get("total") if listing.status_code == 200 else None
+        if total != PROFILE.total:
+            pytest.exit(
+                f"[canary] в БД {total} покемонов, активный профиль датасета "
+                f"'{PROFILE.name}' ожидает {PROFILE.total} (фикстура "
+                f"{PROFILE.sut_fixture}). Прогон остановлен.",
+                returncode=2,
+            )
+
+    openapi = api.get("openapi.json")
+    try:
+        schema_ok = (
+            openapi.status_code == 200
+            and openapi.headers.get("content-type", "").startswith("application/json")
+            and "paths" in openapi.json()
+        )
+    except ValueError:
+        schema_ok = False
+    if not schema_ok:
+        import warnings
+
+        warnings.warn(
+            f"[canary] /api/openapi.json invalid schema "
+            f"(status={openapi.status_code}, "
+            f"content-type={openapi.headers.get('content-type')})"
+        )
+
+
+@pytest.fixture(scope="session")
+def seed_mode(api: httpx.Client) -> str:
+    "SUT configuration probe: 'disabled' | 'enabled' (session cache)."""
+    status = api.post("admin/seed").status_code
+    modes = {403: "disabled", 401: "enabled"}
+    if status not in modes:
+        pytest.fail(
+            f"[seed-probe] unexpected status {status}: failed to determine "
+            f"the seed endpoint mode"
+        )
+    return modes[status]
+
+
+@pytest.fixture(autouse=True)
+def _seed_mode_gate(request):
+    """Auto-skip tests where the required mode did not match the actual mode
+    """
+    if request.node.get_closest_marker("seed_disabled"):
+        required = "disabled"
+    elif request.node.get_closest_marker("seed_enabled"):
+        required = "enabled"
+    else:
+        return
+    actual = request.getfixturevalue("seed_mode")
+    if actual != required:
+        pytest.skip(
+            f"стенд в режиме seed={actual}, тесту нужен seed={required} "
+            f"(см. CI-матрицу в README)"
+        )
+
+
+@pytest.fixture(scope="session")
+def seed_token() -> str:
+    """Секрет для позитивной ветки DT (строка 4). Не хардкодим: в CI токен
+    генерируется на прогон и передаётся одновременно стенду и тестам."""
+    token = os.getenv("POKETESTS_SEED_TOKEN")
+    if not token:
+        pytest.skip("POKETESTS_SEED_TOKEN не задан — позитивный seed-тест недоступен")
+    return token
