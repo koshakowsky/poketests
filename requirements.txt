@@ -1,0 +1,5 @@
+pytest>=8.2
+httpx>=0.27
+pydantic>=2.7
+allpairspy>=2.5
+allure-pytest>=2.13
