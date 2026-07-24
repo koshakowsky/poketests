@@ -52,10 +52,10 @@ def canary(api: httpx.Client) -> None:
     try:
         health = api.get("health")
     except httpx.HTTPError as exc:
-        pytest.exit(f"[canary] SUT недоступен по {BASE_URL}: {exc}", returncode=2)
+        pytest.exit(f"[canary] SUT is unavalible in {BASE_URL}: {exc}", returncode=2)
     if health.status_code != 200 or health.json().get("status") != "ok":
         pytest.exit(
-            f"[canary] health вернул {health.status_code}: {health.text[:200]}",
+            f"[canary] health returned {health.status_code}: {health.text[:200]}",
             returncode=2,
         )
 
@@ -64,9 +64,9 @@ def canary(api: httpx.Client) -> None:
         total = listing.json().get("total") if listing.status_code == 200 else None
         if total != PROFILE.total:
             pytest.exit(
-                f"[canary] в БД {total} покемонов, активный профиль датасета "
-                f"'{PROFILE.name}' ожидает {PROFILE.total} (фикстура "
-                f"{PROFILE.sut_fixture}). Прогон остановлен.",
+                f"[canary] {total} pokemons in DB, the active dataset profile "
+                f"'{PROFILE.name}' is wating {PROFILE.total} (fixture "
+                f"{PROFILE.sut_fixture}). The test-run has been stopped",
                 returncode=2,
             )
 
@@ -115,16 +115,13 @@ def _seed_mode_gate(request):
     actual = request.getfixturevalue("seed_mode")
     if actual != required:
         pytest.skip(
-            f"стенд в режиме seed={actual}, тесту нужен seed={required} "
-            f"(см. CI-матрицу в README)"
+            f"stage in seed={actual} mode, this test needs seed={required} "
         )
 
 
 @pytest.fixture(scope="session")
 def seed_token() -> str:
-    """Секрет для позитивной ветки DT (строка 4). Не хардкодим: в CI токен
-    генерируется на прогон и передаётся одновременно стенду и тестам."""
     token = os.getenv("POKETESTS_SEED_TOKEN")
     if not token:
-        pytest.skip("POKETESTS_SEED_TOKEN не задан — позитивный seed-тест недоступен")
+        pytest.skip("POKETESTS_SEED_TOKEN is not set — positive seed test is unavailable.")
     return token
