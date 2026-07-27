@@ -202,7 +202,7 @@ integration.
 |-----|--------------|------|---------|
 | `api-tests` | no token, fixture-seeded Gen I | full suite (403 branch of the seed DT) | push / PR |
 | `seed-auth-tests` | per-run `SEED_TOKEN`, fixture-seeded | full suite (401 branch; the 403 case skips itself) | push / PR |
-| `seed-run` | per-run token, empty DB | `-m restricted` (real seeding via live PokeAPI, row 4 of the DT) | nightly / manual |
+| `seed-run` | per-run token, empty DB | `-m restricted` (real seeding via live PokeAPI, row 4 of the DT) | manual (`workflow_dispatch`) |
 
 Tests declare their required mode via `seed_disabled`/`seed_enabled` markers;
 a session-scoped probe detects the actual stack mode and skips mismatched

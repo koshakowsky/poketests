@@ -1,0 +1,175 @@
+name: API tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: # manual trigger — also the way to run the restricted seed-run job
+  # Nightly schedule intentionally disabled: this is a portfolio project with
+  # no on-call to react to a nightly failure, and the restricted job hits the
+  # live PokeAPI. Kept here to show the intent; enable in a real project to
+  # detect drift of the external integration.
+  # schedule:
+  #   - cron: "0 3 * * *"
+
+env:
+  SUT_REPO: koshakowsky/pokeanalytics
+  SUT_REF: main
+
+jobs:
+  api-tests:
+    name: Full suite (seed disabled, default dataset)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout SUT
+        uses: actions/checkout@v4
+        with:
+          repository: koshakowsky/pokeanalytics
+          ref: main
+          path: sut
+
+      # Fixture seeding is synchronous at startup: --wait returning healthy
+      # already implies "dataset ready" — a single assert replaces polling.
+      - name: Start SUT stack (no token, hermetic fixture seed)
+        working-directory: sut
+        run: docker compose up -d --build --wait
+        env:
+          AUTO_SEED: "1"
+          AUTO_SEED_SOURCE: "fixture"
+
+      - name: Assert dataset is ready
+        run: |
+          total=$(curl -sf 'http://localhost/api/pokemon/?limit=1' | jq -r .total)
+          [ "$total" = "151" ] || { echo "expected 151 pokemon, got: $total"; exit 1; }
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run suite
+        run: pytest --alluredir=allure-results
+        env:
+          POKETESTS_BASE_URL: http://localhost/api
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-api-tests
+          path: allure-results
+
+      - name: SUT logs on failure
+        if: failure()
+        working-directory: sut
+        run: docker compose logs --tail=200
+
+  seed-auth-tests:
+    name: Full suite (token configured)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout SUT
+        uses: actions/checkout@v4
+        with:
+          repository: koshakowsky/pokeanalytics
+          ref: main
+          path: sut
+
+      # The secret exists only for the lifetime of this job: generated here,
+      # passed to the stack; the 401-branch tests never need its value.
+      - name: Generate per-run seed token
+        run: echo "SEED_TOKEN=$(uuidgen)" >> "$GITHUB_ENV"
+
+      # Hermetic seeding made the full suite cheap in this config too, so we
+      # run everything: the seed_disabled case skips itself via the probe.
+      - name: Start SUT stack (token configured, hermetic fixture seed)
+        working-directory: sut
+        run: docker compose up -d --build --wait
+        env:
+          AUTO_SEED: "1"
+          AUTO_SEED_SOURCE: "fixture"
+
+      - name: Assert dataset is ready
+        run: |
+          total=$(curl -sf 'http://localhost/api/pokemon/?limit=1' | jq -r .total)
+          [ "$total" = "151" ] || { echo "expected 151 pokemon, got: $total"; exit 1; }
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run suite (401 branch of the seed decision table included)
+        run: pytest --alluredir=allure-results
+        env:
+          POKETESTS_BASE_URL: http://localhost/api
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-seed-auth
+          path: allure-results
+
+      - name: SUT logs on failure
+        if: failure()
+        working-directory: sut
+        run: docker compose logs --tail=200
+
+  seed-run:
+    name: Restricted seed run (destructive, external network)
+    # Destructive + hits the real PokeAPI: never on PRs, only nightly/manual.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout SUT
+        uses: actions/checkout@v4
+        with:
+          repository: koshakowsky/pokeanalytics
+          ref: main
+          path: sut
+
+      - name: Generate per-run seed token
+        run: echo "SEED_TOKEN=$(uuidgen)" >> "$GITHUB_ENV"
+
+      - name: Start SUT stack (token configured, empty DB)
+        working-directory: sut
+        run: docker compose up -d --build --wait
+        env:
+          AUTO_SEED: "0" # the test itself seeds max_pokemon=5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run restricted seeding test (decision-table row 4)
+        run: pytest -m restricted --alluredir=allure-results
+        env:
+          POKETESTS_BASE_URL: http://localhost/api
+          POKETESTS_SEED_TOKEN: ${{ env.SEED_TOKEN }}
+          POKETESTS_SKIP_DATA_CANARY: "1"
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-seed-run
+          path: allure-results
+
+      - name: SUT logs on failure
+        if: failure()
+        working-directory: sut
+        run: docker compose logs --tail=200
