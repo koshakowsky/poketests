@@ -1,5 +1,8 @@
 # PokéAnalytics — API Test Catalog
 
+[![API tests](https://github.com/koshakowsky/poketests/actions/workflows/api-tests.yml/badge.svg)](https://github.com/koshakowsky/poketests/actions/workflows/api-tests.yml)
+[![Allure report](https://img.shields.io/badge/Allure-report-8A2BE2)](https://koshakowsky.github.io/poketests/)
+
 Test-case catalog and automation for the
 [**pokeanalytics**](https://github.com/koshakowsky/pokeanalytics) REST API
 (the companion system under test). The catalog is the **test design** layer:
@@ -218,6 +221,10 @@ PR automatically and can be made a required check — so a SUT change cannot
 merge if it breaks the contract this catalog encodes.
 
 ### Allure report
+
+The latest report is published to GitHub Pages on every push to `main`:
+**<https://koshakowsky.github.io/poketests/>** (the `publish-report` job runs
+`allure generate` on the main suite's results and deploys them). Locally:
 
 ```bash
 pytest --alluredir=allure-results
