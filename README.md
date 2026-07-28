@@ -209,6 +209,14 @@ a session-scoped probe detects the actual stack mode and skips mismatched
 tests with a reason. Jobs owning their data disable the dataset canary via
 `POKETESTS_SKIP_DATA_CANARY=1` (health canary stays unconditional).
 
+**Pre-merge gate (in the SUT repo).** This workflow tests changes to *this*
+repo. A companion workflow lives in the SUT repo
+(`pokeanalytics/.github/workflows/pr-gate.yml`): on every PR into
+`pokeanalytics` main it checks out this suite at `main` and runs it against
+the PR's SUT code. Since it runs in the SUT repo, its status attaches to that
+PR automatically and can be made a required check — so a SUT change cannot
+merge if it breaks the contract this catalog encodes.
+
 ### Allure report
 
 ```bash

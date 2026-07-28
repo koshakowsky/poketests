@@ -21,10 +21,10 @@ jobs:
     name: Full suite (seed disabled, default dataset)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Checkout SUT
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: koshakowsky/pokeanalytics
           ref: main
@@ -44,7 +44,7 @@ jobs:
           total=$(curl -sf 'http://localhost/api/pokemon/?limit=1' | jq -r .total)
           [ "$total" = "151" ] || { echo "expected 151 pokemon, got: $total"; exit 1; }
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -58,7 +58,7 @@ jobs:
 
       - name: Upload Allure results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results-api-tests
           path: allure-results
@@ -72,10 +72,10 @@ jobs:
     name: Full suite (token configured)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Checkout SUT
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: koshakowsky/pokeanalytics
           ref: main
@@ -100,7 +100,7 @@ jobs:
           total=$(curl -sf 'http://localhost/api/pokemon/?limit=1' | jq -r .total)
           [ "$total" = "151" ] || { echo "expected 151 pokemon, got: $total"; exit 1; }
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -114,7 +114,7 @@ jobs:
 
       - name: Upload Allure results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results-seed-auth
           path: allure-results
@@ -130,10 +130,10 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Checkout SUT
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: koshakowsky/pokeanalytics
           ref: main
@@ -148,7 +148,7 @@ jobs:
         env:
           AUTO_SEED: "0" # the test itself seeds max_pokemon=5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -164,7 +164,7 @@ jobs:
 
       - name: Upload Allure results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results-seed-run
           path: allure-results
