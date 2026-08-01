@@ -47,8 +47,8 @@ strict `xfail` until fixed.
 - **API / integration (middle, our focus).** HTTP requests against a running
   service: status codes, response shape, business rules and validation. Most
   cases in this catalog live here.
-- **E2E (top).** UI scenarios (Playwright). Kept minimal — end-to-end user
-  journeys only. Not described in this catalog.
+- **E2E (top).** UI scenarios (Playwright for Python). Kept minimal —
+  end-to-end user journeys only, designed in [test-cases/e2e/](test-cases/e2e/).
 
 Distribution rule: anything verifiable at the API level without the UI is
 verified here, not in E2E. Anything verifiable by a pure function without a
@@ -169,6 +169,7 @@ running service is pushed down to unit.
 | [test-cases/07-analytics.md](test-cases/07-analytics.md) | Analytics |
 | [test-cases/08-types.md](test-cases/08-types.md) | Types and effectiveness |
 | [test-cases/09-cross-cutting.md](test-cases/09-cross-cutting.md) | CORS, routing, perf smoke |
+| [test-cases/e2e/](test-cases/e2e/) | **E2E (UI)** — nav, search, compare, analytics, similar journeys |
 | [tools/generate_pairwise.py](tools/generate_pairwise.py) | Pairwise set generator (allpairspy) for TC-LIST-27 |
 | [schemas.py](schemas.py) | Independent test-side response models (shape validation) |
 | [dataset.py](dataset.py) | Dataset profile — centralized data assumptions for exact oracles |
