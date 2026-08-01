@@ -117,19 +117,36 @@ def test_pagination_pages_are_stable(api):
 
 
 @pytest.mark.p1
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG-001: LIKE wildcards are not escaped (bugs/BUG-001, case TC-LIST-28); "
-    "the test encodes the specification — remove xfail once fixed",
-)
 @pytest.mark.parametrize("wildcard", ["%", "_"])
 def test_name_filter_treats_like_wildcards_literally(api, wildcard):
-    """TC-LIST-28: spec — literal search; actual — wildcard injection.
+    """TC-LIST-28: `name` filter matches LIKE wildcards literally.
 
-    strict=True: once the bug is fixed the test will start passing, the xfail
-    turns into an XPASS error — a signal to remove the marker. Without strict
-    the fix would go unnoticed.
+    Regression guard for BUG-001 (bugs/BUG-001): `%`/`_` used to leak into the
+    ILIKE pattern and return everything; now they are escaped, so a name with
+    no literal `%`/`_` matches nothing. Was xfail(strict) until the SUT fix.
     """
     r = api.get("pokemon/", params={"name": wildcard})
     assert r.status_code == 200
     assert r.json()["total"] == 0
+
+
+@pytest.mark.p2
+def test_pagination_stable_with_non_unique_sort_key(api):
+    """TC-LIST-29: pagination is deterministic even on a non-unique sort key.
+
+    Regression guard for BUG-002 (bugs/BUG-002): `stat_total` has many ties;
+    without a secondary id tiebreaker the order inside a tie group was
+    undefined and pages could duplicate/drop rows. Now `ORDER BY <key>, id`.
+    """
+    def collect(offset):
+        r = api.get(
+            "pokemon/",
+            params={"sort_by": "stat_total", "sort_order": "desc", "limit": 50, "offset": offset},
+        )
+        return [item["id"] for item in r.json()["items"]]
+
+    ids = collect(0) + collect(50) + collect(100)
+    assert len(ids) == 150
+    assert len(set(ids)) == 150, "duplicates or gaps between pages on a tied key"
+    # Deterministic across identical requests (stable tie order).
+    assert collect(0) == ids[:50]
