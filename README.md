@@ -1,7 +1,8 @@
 # PokéAnalytics — API Test Catalog
 
 [![API tests](https://github.com/koshakowsky/poketests/actions/workflows/api-tests.yml/badge.svg)](https://github.com/koshakowsky/poketests/actions/workflows/api-tests.yml)
-[![Allure report](https://img.shields.io/badge/Allure-report-8A2BE2)](https://koshakowsky.github.io/poketests/)
+[![Health dashboard](https://img.shields.io/badge/health-dashboard-4f46e5)](https://koshakowsky.github.io/poketests/)
+[![Allure report](https://img.shields.io/badge/Allure-report-8A2BE2)](https://koshakowsky.github.io/poketests/allure/)
 
 Test-case catalog and automation for the
 [**pokeanalytics**](https://github.com/koshakowsky/pokeanalytics) REST API
@@ -220,11 +221,15 @@ the PR's SUT code. Since it runs in the SUT repo, its status attaches to that
 PR automatically and can be made a required check — so a SUT change cannot
 merge if it breaks the contract this catalog encodes.
 
-### Allure report
+### Dashboard & Allure report
 
-The latest report is published to GitHub Pages on every push to `main`:
-**<https://koshakowsky.github.io/poketests/>** (the `publish-report` job runs
-`allure generate` on the main suite's results and deploys them). Locally:
+On every push to `main` the `publish-report` job builds and deploys a combined
+GitHub Pages site: a **project-health dashboard** at the root
+(**<https://koshakowsky.github.io/poketests/>** — pass rate, priority
+breakdown, pyramid, endpoint coverage and bug lifecycle, generated from the
+run's Allure results by [tools/build_dashboard.py](tools/build_dashboard.py)),
+and the **full Allure report** with run-over-run trends under
+**<https://koshakowsky.github.io/poketests/allure/>**. Locally:
 
 ```bash
 pytest --alluredir=allure-results
@@ -238,14 +243,14 @@ to maintain.
 
 ---
 
-## Known defect candidates (bug hunting)
+## Defects found by test design (full lifecycle)
 
-Cases where the **specified** behavior diverges from the **actual** one.
-Policy: the test encodes the specification and is automated as `xfail`
-referencing the bug report; once fixed, the `xfail` marker comes off and the
-test becomes a regression guard.
+Both were found by test design, documented as bug reports, encoded as
+`xfail(strict)` tests against the specification, then **fixed in the SUT** —
+at which point the `xfail` came off and each test became a permanent
+regression guard. This report → fix → guard cycle is the point.
 
-| Case | Bug report | Defect | Essence |
-|------|-----------|--------|---------|
-| TC-LIST-28 | [BUG-001](bugs/BUG-001-like-wildcard-injection.md) | LIKE-wildcard injection | `name=%` / `name=_` are not escaped → the filter returns everything instead of a literal match |
-| TC-LIST-29 | [BUG-002](bugs/BUG-002-unstable-pagination-order.md) | Unstable pagination | no secondary tiebreaker when sorting by a non-unique key → tie order is not defined by the contract |
+| Case | Bug report | Defect | Status |
+|------|-----------|--------|--------|
+| TC-LIST-28 | [BUG-001](bugs/BUG-001-like-wildcard-injection.md) | LIKE-wildcard injection (`name=%` matched everything) | ✅ Fixed — regression guard |
+| TC-LIST-29 | [BUG-002](bugs/BUG-002-unstable-pagination-order.md) | Unstable pagination (no tiebreaker on a non-unique sort key) | ✅ Fixed — regression guard |

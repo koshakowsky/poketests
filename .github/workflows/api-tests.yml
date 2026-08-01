@@ -193,19 +193,57 @@ jobs:
       group: pages
       cancel-in-progress: false
     steps:
+      # The dashboard generator lives in this repo, so we need its code.
+      - name: Checkout test repo
+        uses: actions/checkout@v7
+
       - name: Download suite results
         uses: actions/download-artifact@v8
         with:
           name: allure-results-api-tests
           path: allure-results
 
+      # Trends (pass/fail, duration over runs) require the previous report's
+      # history/ folder fed back into the new results. We pull it from the
+      # already-published Pages site — official actions only, no gh-pages
+      # branch or third-party action. The first run 404s and starts empty.
+      - name: Seed Allure history from the previous report
+        run: |
+          mkdir -p allure-results/history
+          base="https://koshakowsky.github.io/poketests/allure/history"
+          for f in history.json history-trend.json categories-trend.json \
+                   duration-trend.json retry-trend.json; do
+            curl -fsSL "$base/$f" -o "allure-results/history/$f" \
+              || rm -f "allure-results/history/$f"
+          done
+
+      # Label each build in the trend with the CI run number and a link back.
+      - name: Write Allure executor metadata
+        run: |
+          cat > allure-results/executor.json <<EOF
+          {
+            "name": "GitHub Actions",
+            "type": "github",
+            "buildName": "run #${{ github.run_number }}",
+            "buildUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "reportUrl": "https://koshakowsky.github.io/poketests/allure/"
+          }
+          EOF
+
+      # Build the combined site: health dashboard at the root, full Allure
+      # report under /allure/.
       - name: Generate Allure HTML report
-        run: npx --yes allure-commandline generate allure-results --clean -o allure-report
+        run: npx --yes allure-commandline generate allure-results --clean -o site/allure
+
+      - name: Build project-health dashboard
+        run: python3 tools/build_dashboard.py allure-results site/index.html
+        env:
+          BUILD_TIME: ${{ github.event.head_commit.timestamp }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: allure-report
+          path: site
 
       - name: Deploy to GitHub Pages
         id: deployment
