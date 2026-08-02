@@ -7,7 +7,7 @@
 | **Priority** | P1 — one-line fix; defect is environment-dependent and intermittent by nature |
 | **Component** | API — `GET /api/pokemon/` (list/search), sorting + pagination |
 | **Environment** | pokeanalytics `dev`; masked on SQLite, expected to manifest on PostgreSQL (`DATABASE_URL` explicitly supports it) |
-| **Found by** | Test design (state/sequencing analysis), case [TC-LIST-29](../test-cases/03-pokemon-list-search.md#tc-list-29--pagination-with-a-non-unique-sort-key--p2--steg---bug-candidate) |
+| **Found by** | Test design (state/sequencing analysis), case [TC-LIST-29](../test-cases/api/03-pokemon-list-search.md#tc-list-29--pagination-with-a-non-unique-sort-key--p2--steg---bug-candidate) |
 | **Automated as** | `tests/test_03_pokemon_list.py::test_pagination_stable_with_non_unique_sort_key` (regression guard) |
 
 ## Summary

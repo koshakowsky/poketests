@@ -7,7 +7,7 @@
 | **Priority** | P1 — trivial fix, spec-encoding tests already exist |
 | **Component** | API — `GET /api/pokemon/` (list/search), `name` filter |
 | **Environment** | pokeanalytics `dev`, default Gen I seed (151 pokemon); reproducible on SQLite and PostgreSQL |
-| **Found by** | Test design (error guessing), case [TC-LIST-28](../test-cases/03-pokemon-list-search.md#tc-list-28--like-wildcards-in-name--p1--eg---bug-candidate) |
+| **Found by** | Test design (error guessing), case [TC-LIST-28](../test-cases/api/03-pokemon-list-search.md#tc-list-28--like-wildcards-in-name--p1--eg---bug-candidate) |
 | **Automated as** | `tests/test_03_pokemon_list.py::test_name_filter_treats_like_wildcards_literally` (regression guard) |
 
 ## Summary

@@ -27,25 +27,34 @@ The built React SPA served by nginx (same `docker compose` stack). Pages
 Data is the hermetic Gen I fixture (151 pokemon) — the same deterministic
 anchors as the API catalog (bulbasaur #1, charmander #4, mewtwo #150).
 
-## Selector strategy — and a testability finding 🔎
+## Selector strategy — testability built into the SUT 🔎
 
-**The frontend currently exposes no `data-testid` / ARIA hooks.** Elements are
-styled `div`s, an ag-grid table and recharts SVGs. So cases select by:
+A testability gap was found during design — the frontend exposed no stable
+hooks — and **fixed in the SUT**: the components now carry `data-testid`
+anchors on exactly the elements these cases target (a legitimate SDET
+contribution — *making the product observable to tests*, done before writing
+the automation). Preference order for selectors:
 
-- **accessible text / role** — headings (`Pokemon select`), buttons
-  (`⚡ Compare`, `Reset filters`), nav links (`Compare`);
-- **placeholder** — the search inputs (`Pikachu...`, `Start typing…`);
-- **library DOM** — ag-grid rows `.ag-row` / cells `.ag-cell`, recharts
-  `svg.recharts-surface`.
+1. **`data-testid`** (primary) — stable, decoupled from copy and styling:
+   - nav: `nav`, `nav-link-{select|analytics|compare|similar}`;
+   - Select: `filter-name`, `filter-type`, `filter-generation`,
+     `filter-group`, `filter-min_*` (sliders), `results-total`,
+     `results-grid`, `reset-filters`, `page-range`, `page-prev`, `page-next`,
+     `selected-card`;
+   - Compare: `compare-search`, `compare-suggestion`, `compare-chip`,
+     `compare-chip-remove`, `compare-run`, `compare-grid`, `compare-radar`;
+   - Analytics: `group-{type|color|…}`, `analytics-grid`, `chart-avg-total`,
+     `chart-by-type`, `chart-by-generation`;
+   - Similar: `similar-search`, `similar-suggestion`, `target-card`,
+     `similar-grid`, `similar-radar`.
+2. **accessible text / role** — headings, button labels, nav text; the active
+   tab exposes `aria-current="page"` (react-router `NavLink`).
+3. **library DOM** — only for elements rendered internally by the libraries:
+   ag-grid rows/cells `.ag-row` / `.ag-cell` **scoped inside** the relevant
+   `*-grid` testid, and recharts `svg.recharts-surface` **inside** the
+   `chart-*` / `*-radar` testid. Scoping to a testid contains the brittleness.
 
-Library-class selectors are brittle (they change with ag-grid/recharts
-versions). **Recommendation to the SUT (testability):** add stable
-`data-testid` hooks to a handful of anchors — nav container, each filter
-input, the results grid + row, the total counter, the selected/target card,
-each chart container, the Compare button. This is a legitimate SDET
-contribution: *make the product observable to tests.* Each case below notes
-the `data-testid` it would ideally use; until they exist, the fallback
-selector is used.
+Each case notes the `data-testid` it uses.
 
 ## Conventions
 

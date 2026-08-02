@@ -49,10 +49,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install test dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r api/requirements.txt
 
       - name: Run suite
-        run: pytest --alluredir=allure-results
+        run: pytest api --alluredir=allure-results
         env:
           POKETESTS_BASE_URL: http://localhost/api
 
@@ -105,10 +105,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install test dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r api/requirements.txt
 
       - name: Run suite (401 branch of the seed decision table included)
-        run: pytest --alluredir=allure-results
+        run: pytest api --alluredir=allure-results
         env:
           POKETESTS_BASE_URL: http://localhost/api
 
@@ -153,10 +153,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install test dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r api/requirements.txt
 
       - name: Run restricted seeding test (decision-table row 4)
-        run: pytest -m restricted --alluredir=allure-results
+        run: pytest api -m restricted --alluredir=allure-results
         env:
           POKETESTS_BASE_URL: http://localhost/api
           POKETESTS_SEED_TOKEN: ${{ env.SEED_TOKEN }}
