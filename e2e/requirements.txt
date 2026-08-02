@@ -1,0 +1,4 @@
+# E2E deps are heavier (browsers). Reuses the API suite's requirements because
+# the shared root conftest (canary, Allure metadata) needs httpx/allure/pydantic.
+-r ../api/requirements.txt
+pytest-playwright>=0.5

@@ -1,21 +1,22 @@
-# PokéAnalytics — API Test Catalog
+# PokéAnalytics — Test Suite (API + E2E)
 
 [![API tests](https://github.com/koshakowsky/poketests/actions/workflows/api-tests.yml/badge.svg)](https://github.com/koshakowsky/poketests/actions/workflows/api-tests.yml)
 [![Health dashboard](https://img.shields.io/badge/health-dashboard-4f46e5)](https://koshakowsky.github.io/poketests/)
 [![Allure report](https://img.shields.io/badge/Allure-report-8A2BE2)](https://koshakowsky.github.io/poketests/allure/)
 
-Test-case catalog and automation for the
-[**pokeanalytics**](https://github.com/koshakowsky/pokeanalytics) REST API
-(the companion system under test). The catalog is the **test design** layer:
-every case is annotated with the test-design technique it applies, a priority
-and an expected result. The automation layer (pytest + httpx) is derived
-from this catalog.
+Test design **and** automation for the
+[**pokeanalytics**](https://github.com/koshakowsky/pokeanalytics) system under
+test. Two peer suites over one SUT: an **API** suite (pytest + httpx) and an
+**E2E** suite (Playwright for Python), both derived from the test-case catalog
+in [test-cases/](test-cases/), where every case is annotated with the
+design technique it applies, a priority and an expected result.
 
-**At a glance:** 80+ designed cases with technique traceability (EP / BVA /
-pairwise / decision tables / error guessing) · 50 automated checks with
-exact, dataset-profile-driven oracles · a 3-job CI matrix over server
-configurations · 2 documented defects found by test design, encoded as
-strict `xfail` until fixed.
+**At a glance:** 100+ designed cases with technique traceability (EP / BVA /
+pairwise / decision tables / error guessing) · API automation with exact,
+dataset-profile-driven oracles · E2E journeys over Page Objects on `data-testid`
+hooks · CI gate + browser matrix · a live health dashboard and Allure report ·
+2 defects found by test design and driven through the full report→fix→guard
+cycle.
 
 > **Why a separate repository?** In a product setting a suite that targets a
 > single service would live in that service's repo (atomic changes, no
@@ -25,15 +26,42 @@ strict `xfail` until fixed.
 
 ---
 
+## Project structure
+
+Co-located project (one SUT → one test repo), **isolated peer suites** (each
+owns its deps, fixtures and tests). Everything genuinely shared lives at the
+root.
+
+```
+poketests/
+├── conftest.py          shared: api client, canary (SUT up + dataset), Allure hook
+├── dataset.py           dataset profile — data assumptions in one place
+├── pytest.ini           shared markers + config
+├── test-cases/          design catalog (api/ + e2e/, mirrors the suites)
+├── bugs/  tools/         bug reports · pairwise + dashboard generators
+├── api/                 API SUITE  →  pytest api
+│   ├── requirements.txt
+│   ├── conftest.py      API-specific: seed-mode probe & gate
+│   ├── schemas.py       independent response models (shape validation)
+│   └── tests/
+└── e2e/                 E2E SUITE  →  pytest e2e
+    ├── requirements.txt
+    ├── conftest.py      base_url + Page Object fixtures
+    ├── pages/           Page Object Model
+    └── tests/
+```
+
+---
+
 ## Place in the test pyramid
 
 ```
         /\
-       /E2E\        UI, Playwright (separate layer, not here)
+       /E2E\        UI journeys, Playwright — e2e/
       /------\
-     /  API   \     <-- THIS CATALOG: integration tests at the HTTP API level
+     /  API   \     <-- integration tests at the HTTP API level — api/
     /----------\        (router + service + DB), fast and stable
-   /   Unit     \    pytest smoke in api/tests + pure functions (similarity, type advantage)
+   /   Unit     \    pure functions + pytest smoke in the SUT repo
   /--------------\
 ```
 
@@ -48,7 +76,8 @@ strict `xfail` until fixed.
   service: status codes, response shape, business rules and validation. Most
   cases in this catalog live here.
 - **E2E (top).** UI scenarios (Playwright for Python). Kept minimal —
-  end-to-end user journeys only, designed in [test-cases/e2e/](test-cases/e2e/).
+  end-to-end user journeys only, designed in [test-cases/e2e/](test-cases/e2e/)
+  and automated in [e2e/](e2e/).
 
 Distribution rule: anything verifiable at the API level without the UI is
 verified here, not in E2E. Anything verifiable by a pure function without a
@@ -96,7 +125,7 @@ running service is pushed down to unit.
 - Successful bodies conform to the endpoint's Pydantic schema (types and
   required fields). Cases list only meaningful checks beyond the schema.
   Enforced once per response type by the automation's *shape tests* via
-  **independent test-side models** (`schemas.py`, `extra="forbid"`) —
+  **independent test-side models** (`api/schemas.py`, `extra="forbid"`) —
   deliberately not imported from the SUT: validating a response with the
   same models that serialized it would be tautological.
 - FastAPI/Pydantic validation errors → **422** with `{"detail": [...]}`.
@@ -159,36 +188,66 @@ running service is pushed down to unit.
 
 | File | Area |
 |------|------|
-| [test-cases/00-preconditions.md](test-cases/00-preconditions.md) | Canary / run entry criteria (fail-fast) |
-| [test-cases/01-health.md](test-cases/01-health.md) | Health check |
-| [test-cases/02-admin-seed.md](test-cases/02-admin-seed.md) | Admin: seeding (authorization, bounds) |
-| [test-cases/03-pokemon-list-search.md](test-cases/03-pokemon-list-search.md) | List/search: filters, sorting, pagination |
-| [test-cases/04-pokemon-detail.md](test-cases/04-pokemon-detail.md) | Pokemon detail |
-| [test-cases/05-pokemon-similar.md](test-cases/05-pokemon-similar.md) | Similar Pokemon |
-| [test-cases/06-compare.md](test-cases/06-compare.md) | Pokemon comparison |
-| [test-cases/07-analytics.md](test-cases/07-analytics.md) | Analytics |
-| [test-cases/08-types.md](test-cases/08-types.md) | Types and effectiveness |
-| [test-cases/09-cross-cutting.md](test-cases/09-cross-cutting.md) | CORS, routing, perf smoke |
+| [test-cases/00-preconditions.md](test-cases/api/00-preconditions.md) | Canary / run entry criteria (fail-fast) |
+| [test-cases/01-health.md](test-cases/api/01-health.md) | Health check |
+| [test-cases/02-admin-seed.md](test-cases/api/02-admin-seed.md) | Admin: seeding (authorization, bounds) |
+| [test-cases/03-pokemon-list-search.md](test-cases/api/03-pokemon-list-search.md) | List/search: filters, sorting, pagination |
+| [test-cases/04-pokemon-detail.md](test-cases/api/04-pokemon-detail.md) | Pokemon detail |
+| [test-cases/05-pokemon-similar.md](test-cases/api/05-pokemon-similar.md) | Similar Pokemon |
+| [test-cases/06-compare.md](test-cases/api/06-compare.md) | Pokemon comparison |
+| [test-cases/07-analytics.md](test-cases/api/07-analytics.md) | Analytics |
+| [test-cases/08-types.md](test-cases/api/08-types.md) | Types and effectiveness |
+| [test-cases/09-cross-cutting.md](test-cases/api/09-cross-cutting.md) | CORS, routing, perf smoke |
 | [test-cases/e2e/](test-cases/e2e/) | **E2E (UI)** — nav, search, compare, analytics, similar journeys |
 | [tools/generate_pairwise.py](tools/generate_pairwise.py) | Pairwise set generator (allpairspy) for TC-LIST-27 |
-| [schemas.py](schemas.py) | Independent test-side response models (shape validation) |
+| [api/schemas.py](api/schemas.py) | Independent test-side response models (shape validation) |
 | [dataset.py](dataset.py) | Dataset profile — centralized data assumptions for exact oracles |
 | [bugs/](bugs/) | Bug reports for defects found by this catalog |
 
+The **API** automation lives in [api/](api/) (`pytest api`) and the **E2E**
+automation in [e2e/](e2e/) (`pytest e2e`) — see *Running* below.
+
 ---
 
-## Running the suite
+## Running the suites
+
+Both need the SUT up (`docker compose up` in pokeanalytics) so the API — and,
+for E2E, the frontend — are reachable. `pytest.ini` sets `testpaths = api/tests`,
+so a bare `pytest` runs the API suite; E2E is opt-in via the `e2e` path.
+
+### API suite
 
 ```bash
-pip install -r requirements.txt
-pytest                        # full run (SUT must be up, see conftest.py)
-pytest -m p0                  # smoke only
-pytest -m restricted          # destructive seed test — isolated stack only
-POKETESTS_BASE_URL=http://localhost:8000/api pytest   # non-default SUT
+pip install -r api/requirements.txt
+pytest api                    # full API suite (bare `pytest` also works)
+pytest api -m p0              # smoke only
+pytest api -m restricted      # destructive seed test — isolated stack only
+POKETESTS_BASE_URL=http://localhost:8000/api pytest api   # non-default SUT
 ```
 
 `restricted` tests are excluded by default (`-m "not restricted"` in
 `pytest.ini`); an explicit `-m` on the command line overrides the filter.
+
+### E2E suite
+
+```bash
+pip install -r e2e/requirements.txt
+playwright install                     # download browser binaries
+pytest e2e                             # chromium (default)
+pytest e2e --browser firefox --browser webkit   # cross-browser matrix
+pytest e2e --headed --slowmo 300       # watch it run
+```
+
+| Env | Default | Purpose |
+|-----|---------|---------|
+| `POKETESTS_WEB_URL` | `http://localhost` | frontend origin the browser navigates |
+| `POKETESTS_BASE_URL` | `http://localhost/api` | API base — used by the shared canary |
+
+E2E uses Page Objects over the SUT's `data-testid` hooks and web-first
+Playwright assertions (no sleeps); ag-grid rows / recharts SVGs are selected
+`.ag-row` / `svg.recharts-surface` **scoped inside** a `data-testid` container.
+The shared root canary applies here too, so "SUT up + Gen I dataset" is a
+precondition for the UI as well.
 
 ### CI matrix
 
@@ -233,7 +292,7 @@ and the **full Allure report** with run-over-run trends under
 **<https://koshakowsky.github.io/poketests/allure/>**. Locally:
 
 ```bash
-pytest --alluredir=allure-results
+pytest api --alluredir=allure-results
 allure serve allure-results   # requires Allure CLI (brew install allure)
 ```
 
