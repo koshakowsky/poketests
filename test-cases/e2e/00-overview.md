@@ -40,7 +40,7 @@ the automation). Preference order for selectors:
    - Select: `filter-name`, `filter-type`, `filter-generation`,
      `filter-group`, `filter-min_*` (sliders), `results-total`,
      `results-grid`, `reset-filters`, `page-range`, `page-prev`, `page-next`,
-     `selected-card`;
+     `selected-card`, `error-banner`;
    - Compare: `compare-search`, `compare-suggestion`, `compare-chip`,
      `compare-chip-remove`, `compare-run`, `compare-grid`, `compare-radar`;
    - Analytics: `group-{type|color|…}`, `analytics-grid`, `chart-avg-total`,
