@@ -4,6 +4,10 @@ Route `/compare`. Autocomplete search → add pokemon as **chips** (max 6) → t
 `⚡ Compare` button (shown at ≥2) → a stat-comparison ag-grid + a **radar
 chart** ("Feature Profiles").
 
+> **🔒 Premium.** Requires an authenticated **premium** session (fixture —
+> see [00-overview.md](00-overview.md)); anonymous/free access behavior lives in
+> [06-auth.md](06-auth.md) / [07-checkout.md](07-checkout.md).
+
 | ID | Title | Prio | Kind |
 |----|-------|------|------|
 | E2E-CMP-01 | Autocomplete suggests matches | P1 | journey |

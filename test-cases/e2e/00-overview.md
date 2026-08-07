@@ -23,9 +23,20 @@ check does not need the browser, it belongs one layer down.
 
 The built React SPA served by nginx (same `docker compose` stack). Pages
 (from the nav): **Select** `/`, **Analytics** `/analytics`, **Compare**
-`/compare`, **Similar** `/similar`. Header shows the logo and a `Gen I` badge.
-Data is the hermetic Gen I fixture (151 pokemon) — the same deterministic
-anchors as the API catalog (bulbasaur #1, charmander #4, mewtwo #150).
+`/compare`, **Similar** `/similar`; plus auth/billing routes reachable off-nav:
+**Login/Register** `/login`, **Checkout** `/checkout`, **Account** `/account`.
+The header's right side shows **auth controls** — a `Log in` link when signed
+out, or the user's email + tier badge + `Log out` when signed in. Data is the
+hermetic Gen I fixture (151 pokemon) — the same deterministic anchors as the
+API catalog (bulbasaur #1, charmander #4, mewtwo #150).
+
+**Access model in the UI** (mirrors the API RBAC, [12-rbac.md](../api/12-rbac.md)):
+**Select** is public; **Analytics / Compare / Similar** are **premium**. An
+*anonymous* visit to a premium page redirects to `/login` (≈ API `401`); a
+*free* user sees an in-place upgrade prompt (≈ API `403`). Premium E2E journeys
+therefore run under an **authenticated premium session**, established once by a
+fixture (register + checkout via the API, token injected into the browser) so
+the UI cases don't re-walk the payment flow every time.
 
 ## Selector strategy — testability built into the SUT 🔎
 
@@ -46,7 +57,16 @@ the automation). Preference order for selectors:
    - Analytics: `group-{type|color|…}`, `analytics-grid`, `chart-avg-total`,
      `chart-by-type`, `chart-by-generation`;
    - Similar: `similar-search`, `similar-suggestion`, `target-card`,
-     `similar-grid`, `similar-radar`.
+     `similar-grid`, `similar-radar`;
+   - Auth: `login-page`, `auth-email`, `auth-password`, `auth-submit`,
+     `auth-toggle`, `auth-error`; header `login-link`, `user-email`,
+     `user-tier`, `logout-button`;
+   - Billing: upgrade wall `upgrade-prompt`, `view-plans-button`; Checkout
+     `checkout-page`, `plan-card`, `plan-price`, `card-number`, `card-brand`,
+     `exp-month`, `exp-year`, `cvc`, `pay-button`, `checkout-error`,
+     `error-number`/`error-expiry`/`error-cvc`; Account `account-page`,
+     `account-tier`, `sub-details`, `sub-status`, `cancel-button`,
+     `resubscribe-button`.
 2. **accessible text / role** — headings, button labels, nav text; the active
    tab exposes `aria-current="page"` (react-router `NavLink`).
 3. **library DOM** — only for elements rendered internally by the libraries:
@@ -59,7 +79,8 @@ Each case notes the `data-testid` it uses.
 ## Conventions
 
 - **Case ID:** `E2E-<AREA>-<NN>`. Areas: `NAV`, `SRCH` (select), `CMP`
-  (compare), `ANL` (analytics), `SIM` (similar).
+  (compare), `ANL` (analytics), `SIM` (similar), `AUTH` (login/register/logout),
+  `PAY` (checkout/subscription).
 - **Priorities:** P0 smoke/core journey · P1 important · P2 secondary · P3
   edge/non-functional. Same P0-P3 scale as the API suite.
 - **Kinds:** `smoke`, `journey` (multi-step user flow), `render` (visual
@@ -84,6 +105,8 @@ chromium to keep the run fast. Marked per case as *(matrix)*.
 |------|------|
 | [01-navigation.md](01-navigation.md) | Layout, nav, client-side routing, deep-link |
 | [02-search.md](02-search.md) | Select page: filters, grid, pagination, detail card |
-| [03-compare.md](03-compare.md) | Compare: autocomplete, chips, stat table + radar |
-| [04-analytics.md](04-analytics.md) | Analytics: grouping, table, charts |
-| [05-similar.md](05-similar.md) | Similar: pick target, similar table + radar |
+| [03-compare.md](03-compare.md) | Compare: autocomplete, chips, stat table + radar *(premium)* |
+| [04-analytics.md](04-analytics.md) | Analytics: grouping, table, charts *(premium)* |
+| [05-similar.md](05-similar.md) | Similar: pick target, similar table + radar *(premium)* |
+| [06-auth.md](06-auth.md) | Login / register / logout, route guard, session |
+| [07-checkout.md](07-checkout.md) | Upgrade wall → checkout → account, cancel |
