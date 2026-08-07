@@ -4,6 +4,12 @@ Route `/analytics`. Grouping buttons (Type/Color/Generation/Habitat/Shape/
 Growth rate) → an ag-grid table → three recharts: **Average Total Stats**
 (bar), **By type** (pie), **Pokemons by generation** (bar).
 
+> **🔒 Premium.** This page requires an authenticated **premium** session (a
+> fixture signs in a premium user — see [00-overview.md](00-overview.md)).
+> The anonymous-redirect and free-tier upgrade-wall behaviors are covered in
+> [06-auth.md](06-auth.md) (E2E-AUTH-03) and [07-checkout.md](07-checkout.md)
+> (E2E-PAY-01); the cases below assume access is already granted.
+
 | ID | Title | Prio | Kind |
 |----|-------|------|------|
 | E2E-ANL-01 | Page loads: table + three charts | P0 | smoke/render *(matrix)* |

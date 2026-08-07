@@ -59,7 +59,8 @@ Each case notes the `data-testid` it uses.
 ## Conventions
 
 - **Case ID:** `E2E-<AREA>-<NN>`. Areas: `NAV`, `SRCH` (select), `CMP`
-  (compare), `ANL` (analytics), `SIM` (similar).
+  (compare), `ANL` (analytics), `SIM` (similar), `AUTH` (login/register/logout),
+  `PAY` (checkout/subscription).
 - **Priorities:** P0 smoke/core journey · P1 important · P2 secondary · P3
   edge/non-functional. Same P0-P3 scale as the API suite.
 - **Kinds:** `smoke`, `journey` (multi-step user flow), `render` (visual
@@ -84,6 +85,8 @@ chromium to keep the run fast. Marked per case as *(matrix)*.
 |------|------|
 | [01-navigation.md](01-navigation.md) | Layout, nav, client-side routing, deep-link |
 | [02-search.md](02-search.md) | Select page: filters, grid, pagination, detail card |
-| [03-compare.md](03-compare.md) | Compare: autocomplete, chips, stat table + radar |
-| [04-analytics.md](04-analytics.md) | Analytics: grouping, table, charts |
-| [05-similar.md](05-similar.md) | Similar: pick target, similar table + radar |
+| [03-compare.md](03-compare.md) | Compare: autocomplete, chips, stat table + radar *(premium)* |
+| [04-analytics.md](04-analytics.md) | Analytics: grouping, table, charts *(premium)* |
+| [05-similar.md](05-similar.md) | Similar: pick target, similar table + radar *(premium)* |
+| [06-auth.md](06-auth.md) | Login / register / logout, route guard, session |
+| [07-checkout.md](07-checkout.md) | Upgrade wall → checkout → account, cancel |

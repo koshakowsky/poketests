@@ -4,6 +4,10 @@ Route `/similar`. Autocomplete → pick a pokemon → a **target card** (officia
 sprite, base stats, meta) + a **Similar Pokemon** ag-grid (match %) + a radar
 ("X vs Top-3 similar"). Shows `⏳ Loading...` while fetching.
 
+> **🔒 Premium.** Requires an authenticated **premium** session (fixture —
+> see [00-overview.md](00-overview.md)); anonymous/free access behavior lives in
+> [06-auth.md](06-auth.md) / [07-checkout.md](07-checkout.md).
+
 | ID | Title | Prio | Kind |
 |----|-------|------|------|
 | E2E-SIM-01 | Pick a target → card + table + radar | P0 | journey *(matrix)* |

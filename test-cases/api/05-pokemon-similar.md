@@ -5,6 +5,12 @@ Returns a list of similar pokemon (`SimilarPokemon[]`) sorted by
 type overlap, 20% meta (generation/habitat/color/legendary flag).
 `limit` parameter — `Query(10, ge=1, le=50)`. Unknown pokemon → 404.
 
+> **🔒 Access: premium.** Unlike the public pokemon **list** and **detail**,
+> the `similar` feature requires the **premium** tier (it's an analytical
+> feature). Anonymous → `401`, free → `403`, premium/admin → `200` (see
+> [12-rbac.md](12-rbac.md)). The cases below assume an authenticated premium
+> caller; the codes here (404/422) apply **after** authorization passes.
+
 | ID | Title | Prio | Technique |
 |----|-------|------|-----------|
 | TC-SIM-01 | Similar for an existing pokemon | P0 | EP |

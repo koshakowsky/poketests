@@ -2,6 +2,12 @@
 
 Body: `{"pokemon_ids": [int, ...]}`. Compares 2–6 pokemon.
 
+> **🔒 Access: premium.** This endpoint requires the **premium** tier.
+> Anonymous → `401`, free → `403`, premium/admin → `200` (see
+> [12-rbac.md](12-rbac.md)). The cases below assume an authenticated premium
+> caller; the business-rule codes here (400/422) apply **after** authorization
+> passes.
+
 **Rules (two-level validation):**
 1. **The router** validates the raw array length: `< 2` → 400 "At least 2
    Pokemon are required"; `> 6` → 400 "The maximum is 6 Pokemon".

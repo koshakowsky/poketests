@@ -1,6 +1,12 @@
 # Analytics — `GET /api/analytics/*`
 
-Four aggregate endpoints. No auth, no body.
+Four aggregate endpoints. No body.
+
+> **🔒 Access: premium.** Every route here requires the **premium** tier.
+> Anonymous → `401`, free tier → `403`, premium/admin → `200`. The access
+> control itself is specified in [12-rbac.md](12-rbac.md); the cases below
+> assume an authenticated **premium** caller and focus on the analytics
+> behavior. (Automation sends a premium bearer token via a fixture.)
 
 - `GET /api/analytics/categories?group_by=...` — grouping by a dimension.
   `group_by` is an **enum** `[type, color, generation, habitat, shape,
