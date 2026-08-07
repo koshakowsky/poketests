@@ -36,6 +36,10 @@ class SearchPage(BasePage):
     def selected_card(self) -> Locator:
         return self.page.get_by_test_id("selected-card")
 
+    @property
+    def error_banner(self) -> Locator:
+        return self.page.get_by_test_id("error-banner")
+
     # --- Pagination ---
     @property
     def page_range(self) -> Locator:

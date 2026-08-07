@@ -40,3 +40,63 @@ def test_row_click_opens_detail_card(search_page):
     expect(card).to_be_visible()
     expect(card).to_contain_text("bulbasaur")
     expect(card).to_contain_text("Total 318")
+
+
+@pytest.mark.p1
+def test_filter_by_type(search_page):
+    """E2E-SRCH-04: the Type control drives the grid (every row is fire)."""
+    search_page.open()
+    search_page.select_type("fire")
+    expect(search_page.rows.first).to_be_visible()
+    # Every rendered row shows a fire badge; charmander is present.
+    for row in search_page.rows.all():
+        expect(row).to_contain_text("fire")
+    expect(search_page.row("charmander")).to_be_visible()
+
+
+@pytest.mark.p2
+def test_generation_with_no_data_is_empty(search_page):
+    """E2E-SRCH-05: generation 2 → valid-empty (total 0, no rows, no error)."""
+    search_page.open()
+    search_page.select_generation("2")
+    expect(search_page.total).to_have_text("0")
+    expect(search_page.rows).to_have_count(0)
+    expect(search_page.error_banner).to_have_count(0)
+
+
+@pytest.mark.p1
+def test_pagination_next_prev(search_page):
+    """E2E-SRCH-06: Next/Prev change the range label and the page."""
+    search_page.open()
+    expect(search_page.page_range).to_have_text("1–50 of 151")
+    first_before = search_page.rows.first.inner_text()
+
+    search_page.next_page()
+    expect(search_page.page_range).to_have_text("51–100 of 151")
+    expect(search_page.rows.first).not_to_have_text(first_before)
+
+    search_page.prev_page()
+    expect(search_page.page_range).to_have_text("1–50 of 151")
+
+
+@pytest.mark.p2
+def test_reset_filters(search_page):
+    """E2E-SRCH-07: Reset clears filters and restores the full set."""
+    search_page.open()
+    search_page.filter_by_name("char")
+    expect(search_page.total).to_have_text("3")
+    search_page.reset()
+    expect(search_page.total).to_have_text("151")
+
+
+@pytest.mark.p2
+def test_api_failure_shows_error_banner(search_page, page):
+    """E2E-SRCH-08: a failing API surfaces the error banner; the app survives.
+
+    Driven by request interception — unreachable against the real green stack.
+    """
+    page.route("**/api/pokemon/**", lambda route: route.fulfill(
+        status=500, content_type="application/json", body='{"detail": "boom"}'))
+    search_page.open()
+    expect(search_page.error_banner).to_be_visible()
+    expect(search_page.nav).to_be_visible()  # shell still rendered, no crash

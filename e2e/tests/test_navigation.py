@@ -38,3 +38,22 @@ def test_deeplink_subroute_served_by_spa_fallback(page, base_url):
     """E2E-NAV-04: direct load of /compare works (nginx try_files fallback)."""
     page.goto(f"{base_url}/compare")
     expect(page.get_by_role("heading", name="Compare Pokemon")).to_be_visible()
+
+
+@pytest.mark.p2
+def test_active_tab_highlighted(page, base_url):
+    """E2E-NAV-03: the current tab exposes aria-current=page (react-router NavLink)."""
+    page.goto(f"{base_url}/compare")
+    expect(page.get_by_test_id("nav-link-compare")).to_have_attribute("aria-current", "page")
+    expect(page.get_by_test_id("nav-link-select")).not_to_have_attribute("aria-current", "page")
+
+
+@pytest.mark.p3
+def test_no_console_errors_on_load(page, base_url):
+    """E2E-NAV-05: no console errors / uncaught exceptions on initial render."""
+    errors: list[str] = []
+    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.goto(f"{base_url}/")
+    expect(page.get_by_test_id("nav")).to_be_visible()
+    assert errors == [], f"console errors on load: {errors}"

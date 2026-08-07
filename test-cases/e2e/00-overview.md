@@ -23,20 +23,9 @@ check does not need the browser, it belongs one layer down.
 
 The built React SPA served by nginx (same `docker compose` stack). Pages
 (from the nav): **Select** `/`, **Analytics** `/analytics`, **Compare**
-`/compare`, **Similar** `/similar`; plus auth/billing routes reachable off-nav:
-**Login/Register** `/login`, **Checkout** `/checkout`, **Account** `/account`.
-The header's right side shows **auth controls** — a `Log in` link when signed
-out, or the user's email + tier badge + `Log out` when signed in. Data is the
-hermetic Gen I fixture (151 pokemon) — the same deterministic anchors as the
-API catalog (bulbasaur #1, charmander #4, mewtwo #150).
-
-**Access model in the UI** (mirrors the API RBAC, [12-rbac.md](../api/12-rbac.md)):
-**Select** is public; **Analytics / Compare / Similar** are **premium**. An
-*anonymous* visit to a premium page redirects to `/login` (≈ API `401`); a
-*free* user sees an in-place upgrade prompt (≈ API `403`). Premium E2E journeys
-therefore run under an **authenticated premium session**, established once by a
-fixture (register + checkout via the API, token injected into the browser) so
-the UI cases don't re-walk the payment flow every time.
+`/compare`, **Similar** `/similar`. Header shows the logo and a `Gen I` badge.
+Data is the hermetic Gen I fixture (151 pokemon) — the same deterministic
+anchors as the API catalog (bulbasaur #1, charmander #4, mewtwo #150).
 
 ## Selector strategy — testability built into the SUT 🔎
 
@@ -51,22 +40,13 @@ the automation). Preference order for selectors:
    - Select: `filter-name`, `filter-type`, `filter-generation`,
      `filter-group`, `filter-min_*` (sliders), `results-total`,
      `results-grid`, `reset-filters`, `page-range`, `page-prev`, `page-next`,
-     `selected-card`;
+     `selected-card`, `error-banner`;
    - Compare: `compare-search`, `compare-suggestion`, `compare-chip`,
      `compare-chip-remove`, `compare-run`, `compare-grid`, `compare-radar`;
    - Analytics: `group-{type|color|…}`, `analytics-grid`, `chart-avg-total`,
      `chart-by-type`, `chart-by-generation`;
    - Similar: `similar-search`, `similar-suggestion`, `target-card`,
-     `similar-grid`, `similar-radar`;
-   - Auth: `login-page`, `auth-email`, `auth-password`, `auth-submit`,
-     `auth-toggle`, `auth-error`; header `login-link`, `user-email`,
-     `user-tier`, `logout-button`;
-   - Billing: upgrade wall `upgrade-prompt`, `view-plans-button`; Checkout
-     `checkout-page`, `plan-card`, `plan-price`, `card-number`, `card-brand`,
-     `exp-month`, `exp-year`, `cvc`, `pay-button`, `checkout-error`,
-     `error-number`/`error-expiry`/`error-cvc`; Account `account-page`,
-     `account-tier`, `sub-details`, `sub-status`, `cancel-button`,
-     `resubscribe-button`.
+     `similar-grid`, `similar-radar`.
 2. **accessible text / role** — headings, button labels, nav text; the active
    tab exposes `aria-current="page"` (react-router `NavLink`).
 3. **library DOM** — only for elements rendered internally by the libraries:
