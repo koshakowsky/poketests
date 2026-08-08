@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 
 
@@ -58,3 +59,14 @@ class TestCards:
 
 
 CARDS = TestCards()
+
+
+@dataclass(frozen=True)
+class AdminCreds:
+    """Seeded admin account (SUT bootstrap defaults; override via env if the
+    stage was seeded with different credentials)."""
+    email: str = os.getenv("POKETESTS_ADMIN_EMAIL", "admin@example.com")
+    password: str = os.getenv("POKETESTS_ADMIN_PASSWORD", "admin-password-123")
+
+
+ADMIN = AdminCreds()

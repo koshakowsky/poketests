@@ -8,6 +8,9 @@ from allure_commons.types import Severity
 
 from dataset import PROFILE
 
+# Fixture modules registered as plugins (must live in the root conftest).
+pytest_plugins = ["fixtures.users"]
+
 BASE_URL = os.getenv("POKETESTS_BASE_URL", "http://localhost/api")
 
 SKIP_DATA_CANARY = os.getenv("POKETESTS_SKIP_DATA_CANARY") == "1"

@@ -11,9 +11,9 @@ GENERATION_LIST = TypeAdapter(list[GenerationStats])
 
 
 @pytest.mark.p0
-def test_categories_default_grouping(api):
+def test_categories_default_grouping(premium_api):
     """TC-ANL-01: default grouping (type) responds and is non-empty (shape test)."""
-    r = api.get("analytics/categories")
+    r = premium_api.get("analytics/categories")
     assert r.status_code == 200
     rows = r.json()
     CATEGORY_LIST.validate_python(rows)
@@ -24,9 +24,9 @@ def test_categories_default_grouping(api):
 
 
 @pytest.mark.p1
-def test_generation_stats_exact_counts(api):
+def test_generation_stats_exact_counts(premium_api):
     """TC-ANL-07: deterministic oracles from the dataset profile; shape test."""
-    r = api.get("analytics/generation-stats")
+    r = premium_api.get("analytics/generation-stats")
     assert r.status_code == 200
     gens = r.json()
     GENERATION_LIST.validate_python(gens)
