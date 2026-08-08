@@ -379,3 +379,4 @@ regression guard. This report → fix → guard cycle is the point.
 |------|-----------|--------|--------|
 | TC-LIST-28 | [BUG-001](bugs/BUG-001-like-wildcard-injection.md) | LIKE-wildcard injection (`name=%` matched everything) | ✅ Fixed — regression guard |
 | TC-LIST-29 | [BUG-002](bugs/BUG-002-unstable-pagination-order.md) | Unstable pagination (no tiebreaker on a non-unique sort key) | ✅ Fixed — regression guard |
+| TC-BILL-19 | [BUG-003](bugs/BUG-003-cross-user-idempotency-collision.md) | Cross-user idempotency key collision → 500 (global PK) | ✅ Fixed — regression guard |
