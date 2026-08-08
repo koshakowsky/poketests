@@ -7,14 +7,14 @@ from schemas import CompareResponse
 
 
 @pytest.mark.p0
-def test_compare_two_pokemon(api):
+def test_compare_two_pokemon(premium_api):
     """TC-CMP-01: happy-path comparison of two (shape test).
 
     The SUT declares stat_comparison/advantages as an untyped dict — our model
     types them fully, i.e. the test pins the contract more strictly than the
     SUT's own OpenAPI schema.
     """
-    r = api.post(
+    r = premium_api.post(
         "compare/",
         json={"pokemon_ids": [PROFILE.bulbasaur.id, PROFILE.charmander.id]},
     )
@@ -38,16 +38,16 @@ def test_compare_two_pokemon(api):
     ],
     ids=["empty", "one", "min-two", "max-six", "seven"],
 )
-def test_compare_count_boundaries(api, ids, expected_status):
+def test_compare_count_boundaries(premium_api, ids, expected_status):
     """TC-CMP-02: BVA on id count (2..6) — both boundaries and both violations."""
-    r = api.post("compare/", json={"pokemon_ids": ids})
+    r = premium_api.post("compare/", json={"pokemon_ids": ids})
     assert r.status_code == expected_status
     if expected_status == 200:
         assert len(r.json()["pokemon"]) == len(ids)
 
 
 @pytest.mark.p1
-def test_compare_stat_comparison_invariants(api):
+def test_compare_stat_comparison_invariants(premium_api):
     """TC-CMP-07: aggregate math invariants on a known pair from the profile.
 
     Exact values come from the profile anchors, and spread is COMPUTED from
@@ -57,7 +57,7 @@ def test_compare_stat_comparison_invariants(api):
     pair of numbers.
     """
     weak, strong = PROFILE.bulbasaur, PROFILE.mewtwo
-    r = api.post("compare/", json={"pokemon_ids": [weak.id, strong.id]})
+    r = premium_api.post("compare/", json={"pokemon_ids": [weak.id, strong.id]})
     comparison = r.json()["stat_comparison"]
     st = comparison["stat_total"]
     assert st["values"] == {weak.name: weak.stat_total, strong.name: strong.stat_total}
