@@ -11,12 +11,14 @@ test. Two peer suites over one SUT: an **API** suite (pytest + httpx) and an
 in [test-cases/](test-cases/), where every case is annotated with the
 design technique it applies, a priority and an expected result.
 
-**At a glance:** 100+ designed cases with technique traceability (EP / BVA /
-pairwise / decision tables / error guessing) · API automation with exact,
-dataset-profile-driven oracles · E2E journeys over Page Objects on `data-testid`
-hooks · CI gate + browser matrix · a live health dashboard and Allure report ·
-2 defects found by test design and driven through the full report→fix→guard
-cycle.
+**At a glance:** 140+ designed cases with technique traceability (EP / BVA /
+pairwise / decision tables / error guessing / state) · **auth & authorization**
+coverage — JWT login, a tier-based RBAC access matrix (401-vs-403) and a
+realistic fake-checkout state machine (card validation, declines, idempotency) ·
+API automation with exact, dataset-profile-driven oracles · E2E journeys over
+Page Objects on `data-testid` hooks · CI gate + browser matrix · a live health
+dashboard and Allure report · 2 defects found by test design and driven through
+the full report→fix→guard cycle.
 
 > **Why a separate repository?** In a product setting a suite that targets a
 > single service would live in that service's repo (atomic changes, no
@@ -89,12 +91,12 @@ running service is pushed down to unit.
 
 | Code | Technique | Where applied |
 |------|-----------|---------------|
-| **EP** | Equivalence Partitioning | filter values, `group_by`, types, flags |
-| **BVA** | Boundary Value Analysis | `limit`, `offset`, stat `min/max`, id count in compare, `max_pokemon` |
+| **EP** | Equivalence Partitioning | filter values, `group_by`, types, flags, access classes / tiers |
+| **BVA** | Boundary Value Analysis | `limit`, `offset`, stat `min/max`, compare id count, `max_pokemon`, password length, card number length, expiry month, CVC length |
 | **PW** | Pairwise testing | list filter combinations |
-| **DT** | Decision Table | mutually exclusive filters (legendary/mythical/regular), seed authorization |
-| **EG** | Error Guessing | injection into sort_by, duplicate ids, empty/garbage values |
-| **ST** | State / sequencing | pagination (page stability), seed → data appears |
+| **DT** | Decision Table | mutually exclusive filters, seed authorization, **RBAC endpoint×role matrix**, **card-validation & checkout-precedence tables** |
+| **EG** | Error Guessing | injection into sort_by, duplicate ids, empty/garbage values, token tampering, user enumeration, unknown plan, mass-assignment / privilege escalation, `alg:none`/expired JWT, SQL injection |
+| **ST** | State / sequencing | pagination stability, seed → data appears, **register→login→me**, **subscription lifecycle** (checkout → cancel → reactivate), live-tier access |
 
 ---
 
@@ -113,7 +115,9 @@ running service is pushed down to unit.
 
 - **Case ID:** `TC-<AREA>-<NN>`. Areas: `HLT` (health), `SEED`, `LIST`
   (list/search), `DET` (detail), `SIM` (similar), `CMP` (compare), `ANL`
-  (analytics), `TYP` (types), `ENV` (preconditions), `XC` (cross-cutting).
+  (analytics), `TYP` (types), `ENV` (preconditions), `XC` (cross-cutting),
+  `AUTH` (register/login/me), `BILL` (billing/checkout), `RBAC` (access matrix),
+  `SEC` (application-layer security).
 - **Base prefix:** all routes live under `/api`; case paths are written
   relative to `/api`.
 - **Case format:** ID · Title · Priority · Technique · Preconditions (if any) ·
@@ -130,7 +134,11 @@ running service is pushed down to unit.
   same models that serialized it would be tautological.
 - FastAPI/Pydantic validation errors → **422** with `{"detail": [...]}`.
 - Business errors (via `HTTPException`) → the corresponding code with
-  `{"detail": "<text>"}`.
+  `{"detail": "<text>"}`. **Billing** errors instead carry a *structured*
+  detail `{"detail": {"error_code": "...", "message": "..."}}` so tests assert
+  on a stable `error_code`, not prose (see 11-billing-checkout.md).
+- **Auth:** protected routes need `Authorization: Bearer <token>`; missing/
+  invalid → 401 (`WWW-Authenticate: Bearer`), insufficient tier → 403.
 - GET endpoints are idempotent and do not mutate state.
 - **Trailing slash:** routes are declared with a trailing slash
   (`/api/pokemon/`); a slash-less request → `307` redirect (pinned by
@@ -144,11 +152,18 @@ running service is pushed down to unit.
 | Code | When |
 |------|------|
 | 200 | successful GET/POST with a result |
+| 201 | resource created (register a user) |
 | 400 | business rule violated (e.g. compare id count outside 2..6) |
-| 401 | seed: wrong token provided |
-| 403 | seed: feature disabled (no token configured) |
-| 404 | entity not found (pokemon/type by id) |
-| 422 | parameter validation error (type/range/enum/body) |
+| 401 | **not authenticated** — missing/invalid/expired token; seed: wrong token |
+| 402 | payment declined at checkout (`card_declined` / `insufficient_funds`) |
+| 403 | **forbidden** — authenticated but tier too low; seed: feature disabled |
+| 404 | entity not found (pokemon/type by id); unknown checkout plan |
+| 409 | conflict — duplicate email, already subscribed, no active subscription |
+| 422 | parameter/body validation error (type/range/enum, card format) |
+
+**401 vs 403** is a deliberate, tested distinction: *no/invalid credentials* →
+401, *valid credentials but insufficient tier* → 403 (see
+[test-cases/api/12-rbac.md](test-cases/api/12-rbac.md), TC-RBAC-07).
 
 ---
 
@@ -182,6 +197,30 @@ running service is pushed down to unit.
   dozens of tests, and the canary aborts the run if the stand's data does
   not match the active profile.
 
+### Authentication, tiers & test data
+
+- **Auth:** JWT bearer. `POST /api/auth/register` (free user) →
+  `POST /api/auth/login` (token) → send `Authorization: Bearer <token>`.
+- **Tiers:** `free < premium < admin`. Public endpoints need no auth; analytics,
+  `similar` and compare need **premium**; `/admin/users` needs **admin**.
+  Full contract in [test-cases/api/12-rbac.md](test-cases/api/12-rbac.md).
+- **Seeded admin:** the SUT bootstraps a deterministic admin from env
+  (`ADMIN_EMAIL` / `ADMIN_PASSWORD`, defaults `admin@example.com` /
+  `admin-password-123`) so admin-tier cases have a known account.
+- **Users are created per run:** tests register fresh, unique users (e.g.
+  `user+{uuid}@test.io`) rather than relying on fixed accounts — the suite owns
+  no reset between tests, and unique emails keep the `409`-duplicate path and
+  parallel workers from colliding. A **premium** user is obtained by registering
+  then running a successful checkout.
+- **Test cards (fake gateway, all Luhn-valid):**
+
+  | Number | Brand | Outcome |
+  |--------|-------|---------|
+  | `4242 4242 4242 4242` | visa | success |
+  | `3782 822463 10005` | amex | success (CVC 4 digits) |
+  | `4000 0000 0000 0002` | visa | `402 card_declined` |
+  | `4000 0000 0000 9995` | visa | `402 insufficient_funds` |
+
 ---
 
 ## Catalog structure
@@ -198,7 +237,11 @@ running service is pushed down to unit.
 | [test-cases/07-analytics.md](test-cases/api/07-analytics.md) | Analytics |
 | [test-cases/08-types.md](test-cases/api/08-types.md) | Types and effectiveness |
 | [test-cases/09-cross-cutting.md](test-cases/api/09-cross-cutting.md) | CORS, routing, perf smoke |
-| [test-cases/e2e/](test-cases/e2e/) | **E2E (UI)** — nav, search, compare, analytics, similar journeys |
+| [test-cases/10-auth.md](test-cases/api/10-auth.md) | Auth: register / login / me, JWT |
+| [test-cases/11-billing-checkout.md](test-cases/api/11-billing-checkout.md) | Billing & checkout: plans, card validation, declines, idempotency, cancel |
+| [test-cases/12-rbac.md](test-cases/api/12-rbac.md) | RBAC: tier access matrix, 401-vs-403 |
+| [test-cases/13-security.md](test-cases/api/13-security.md) | Security: mass-assignment, JWT attacks, injection (+ consolidated) |
+| [test-cases/e2e/](test-cases/e2e/) | **E2E (UI)** — nav, search, compare, analytics, similar, **auth, checkout** journeys |
 | [tools/generate_pairwise.py](tools/generate_pairwise.py) | Pairwise set generator (allpairspy) for TC-LIST-27 |
 | [api/schemas.py](api/schemas.py) | Independent test-side response models (shape validation) |
 | [dataset.py](dataset.py) | Dataset profile — centralized data assumptions for exact oracles |
@@ -280,6 +323,28 @@ repo. A companion workflow lives in the SUT repo
 the PR's SUT code. Since it runs in the SUT repo, its status attaches to that
 PR automatically and can be made a required check — so a SUT change cannot
 merge if it breaks the contract this catalog encodes.
+
+### E2E CI (browser matrix)
+
+[.github/workflows/ui-tests.yml](.github/workflows/ui-tests.yml) runs the E2E
+suite against a fresh docker-compose stack across a browser matrix — **full
+suite on chromium, P0 smoke on firefox and webkit** (cross-browser on the
+critical paths without paying for the whole suite ×3).
+
+Two techniques worth noting:
+
+- **Path filter without breaking the required check.** On a PR the expensive
+  browser matrix runs only when E2E-relevant paths changed (`e2e/`,
+  `test-cases/e2e/`, shared root files) — detected by a native `git diff`
+  step, no third-party action. But the workflow itself always runs, so a
+  final **`gate`** job always reports. Make `gate` the required check: it
+  passes when the matrix succeeded *or* was legitimately skipped, and fails
+  when any browser leg failed. A top-level `on.paths` filter would instead
+  leave a required check stuck "pending" on unrelated PRs — the aggregator
+  pattern avoids that.
+- E2E Allure results are uploaded per browser as artifacts; publishing them
+  into the Pages report is a future step (the API suite owns the Pages
+  deploy today).
 
 ### Dashboard & Allure report
 

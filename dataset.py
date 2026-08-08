@@ -44,3 +44,17 @@ GEN1 = DatasetProfile(
 )
 
 PROFILE = GEN1
+
+
+@dataclass(frozen=True)
+class TestCards:
+    """Fake-gateway test card numbers — see test-cases/api/11-billing-checkout.md.
+    All are Luhn-valid; the outcome is the gateway's business decision."""
+    visa_ok: str = "4242424242424242"
+    amex_ok: str = "378282246310005"       # amex → CVC is 4 digits
+    declined: str = "4000000000000002"     # → 402 card_declined
+    insufficient: str = "4000000000009995" # → 402 insufficient_funds
+    luhn_invalid: str = "4242424242424241" # last digit flipped → invalid_number
+
+
+CARDS = TestCards()
