@@ -4,6 +4,11 @@ The app shell: header, four nav tabs, client-side routing. `BrowserRouter`
 means sub-routes are served by the nginx SPA fallback (`try_files … /index.html`)
 — worth an explicit deep-link/reload check.
 
+> **Note:** the analytics/compare/similar tabs are premium-gated, so the
+> routing cases that land on them run under an authenticated **premium** session
+> (a fixture) — an anonymous click would redirect to `/login`, which is its own
+> case in [06-auth.md](06-auth.md).
+
 | ID | Title | Prio | Kind |
 |----|-------|------|------|
 | E2E-NAV-01 | App shell loads (header + 4 tabs) | P0 | smoke *(matrix)* |

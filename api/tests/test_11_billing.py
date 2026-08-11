@@ -183,6 +183,17 @@ def test_checkout_idempotency_replays_result(api, make_user):
     assert second.json() == first.json()
 
 
+@pytest.mark.p2
+def test_idempotency_key_is_scoped_per_user(api, make_user):
+    """TC-BILL-19 / BUG-003: an idempotency key is per-user — two users may
+    reuse the same key without colliding (was a global PK -> 500)."""
+    key = uuid.uuid4().hex
+    u1, u2 = make_user(), make_user()
+    assert _checkout(api, u1, key=key).status_code == 200
+    assert _checkout(api, u2, key=key).status_code == 200
+    assert api.get("auth/me", headers=u2.headers).json()["tier"] == "premium"
+
+
 @pytest.mark.p1
 def test_subscription_reflects_masked_card(api, make_user):
     """TC-BILL-12 / TC-BILL-17: only brand + last4 are exposed, never the PAN/CVC."""

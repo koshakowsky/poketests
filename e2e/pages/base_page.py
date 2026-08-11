@@ -31,3 +31,32 @@ class BasePage:
 
     def nav_to(self, name: str) -> None:
         self.nav_link(name).click()
+
+    # --- Header auth controls ---
+    @property
+    def login_link(self) -> Locator:
+        return self.page.get_by_test_id("login-link")
+
+    @property
+    def user_email(self) -> Locator:
+        return self.page.get_by_test_id("user-email")
+
+    @property
+    def user_tier(self) -> Locator:
+        return self.page.get_by_test_id("user-tier")
+
+    @property
+    def logout_button(self) -> Locator:
+        return self.page.get_by_test_id("logout-button")
+
+    def logout(self) -> None:
+        self.logout_button.click()
+
+    # --- Premium wall (shown on gated routes for a free/anon user) ---
+    @property
+    def upgrade_prompt(self) -> Locator:
+        return self.page.get_by_test_id("upgrade-prompt")
+
+    @property
+    def view_plans_button(self) -> Locator:
+        return self.page.get_by_test_id("view-plans-button")

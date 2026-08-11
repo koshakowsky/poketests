@@ -18,4 +18,6 @@ class AnalyticsPage(BasePage):
 
     def chart(self, name: str) -> Locator:
         """name ∈ {avg-total, by-type, by-generation}."""
-        return self.page.get_by_test_id(f"chart-{name}").locator("svg.recharts-surface")
+        # :not([aria-label]) excludes recharts legend-icon surfaces (they carry
+        # an aria-label); only the main chart surface remains.
+        return self.page.get_by_test_id(f"chart-{name}").locator("svg.recharts-surface:not([aria-label])")
