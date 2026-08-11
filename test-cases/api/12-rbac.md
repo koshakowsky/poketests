@@ -13,9 +13,9 @@ Endpoints fall into three access classes:
 
 | Class | Min tier | Endpoints |
 |-------|----------|-----------|
-| **public** | none | `GET /health`, `GET /pokemon/` (+ `/search`), `GET /pokemon/{id}`, `GET /types/`, `GET /billing/plans`, `POST /auth/register`, `POST /auth/login` |
+| **public** | none | `GET /health`, `GET /pokemon/` (+ `/search`), `GET /pokemon/{id}`, `GET /types/`, `GET /analytics/stat-ranges`, `GET /billing/plans`, `POST /auth/register`, `POST /auth/login` |
 | **authenticated** | any logged-in | `GET /auth/me`, `POST /billing/checkout`, `GET /billing/subscription`, `POST /billing/cancel` |
-| **premium** | premium | `GET /analytics/*`, `GET /pokemon/{id}/similar`, `POST /compare/` |
+| **premium** | premium | `GET /analytics/categories`, `GET /analytics/type-distribution`, `GET /analytics/generation-stats`, `GET /pokemon/{id}/similar`, `POST /compare/` |
 | **admin** | admin | `GET /admin/users` |
 
 ## The central oracle — 401 vs 403
@@ -117,11 +117,12 @@ columns = caller identity. Cell = expected status.
 | `GET /pokemon/` | 200 | 200 | 200 | 200 |
 | `GET /pokemon/{id}` | 200 | 200 | 200 | 200 |
 | `GET /types/` | 200 | 200 | 200 | 200 |
+| `GET /analytics/stat-ranges` | 200 | 200 | 200 | 200 |
 | `GET /billing/plans` | 200 | 200 | 200 | 200 |
 | `GET /auth/me` | 401 | 200 | 200 | 200 |
 | `GET /billing/subscription` | 401 | 200 | 200 | 200 |
 | `POST /billing/checkout` | 401 | 200* | 409† | 409† |
-| `GET /analytics/*` | 401 | 403 | 200 | 200 |
+| `GET /analytics/{categories,type-distribution,generation-stats}` | 401 | 403 | 200 | 200 |
 | `GET /pokemon/{id}/similar` | 401 | 403 | 200 | 200 |
 | `POST /compare/` | 401 | 403 | 200 | 200 |
 | `GET /admin/users` | 401 | 403 | 403 | 200 |

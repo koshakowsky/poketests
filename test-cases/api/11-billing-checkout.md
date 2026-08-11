@@ -50,6 +50,7 @@ come from the app with these codes, not as a generic Pydantic `422`.)
 | TC-BILL-16 | Checkout body validation → 422 | P2 | EG |
 | TC-BILL-17 | PAN / CVC never stored or returned in full | P1 | security |
 | TC-BILL-18 | Amex happy path (4-digit CVC) | P2 | EP |
+| TC-BILL-19 | Idempotency key is scoped per user | P2 | ST → BUG-003 |
 
 ---
 
@@ -226,3 +227,11 @@ field ever appears.
 future expiry, fresh free user.
 **Expected:** `200`; `card_brand == "amex"`, `card_last4 == "0005"`; tier →
 premium. Confirms brand detection and the amex-specific CVC length end to end.
+
+### TC-BILL-19 — Idempotency key is scoped per user · P2 · ST → BUG-003
+**Steps:** two different users each checkout with the **same** `idempotency_key`.
+**Expected:** both succeed independently (`200`/`200`), each ends up premium —
+one user's key never affects another's request. Regression guard for
+[BUG-003](../../bugs/BUG-003-cross-user-idempotency-collision.md): the key used
+to be a global primary key, so a cross-user collision returned `500`. The fix
+scopes idempotency per user (composite key `(user_id, key)`).

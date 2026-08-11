@@ -20,4 +20,4 @@ class SimilarPage(BasePage):
 
     @property
     def radar(self) -> Locator:
-        return self.page.get_by_test_id("similar-radar").locator("svg.recharts-surface")
+        return self.page.get_by_test_id("similar-radar").locator("svg.recharts-surface:not([aria-label])")

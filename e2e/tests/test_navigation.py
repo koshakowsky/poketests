@@ -25,27 +25,31 @@ def test_app_shell_loads(page, base_url):
     ],
     ids=["analytics", "compare", "similar", "select"],
 )
-def test_nav_routes_to_page(page, base_url, link, path, heading):
-    """E2E-NAV-02: each tab client-routes to its page (URL + heading)."""
-    page.goto(f"{base_url}/")
-    page.get_by_test_id(f"nav-link-{link}").click()
-    expect(page).to_have_url(f"{base_url}{path}")
-    expect(page.get_by_role("heading", name=heading)).to_be_visible()
+def test_nav_routes_to_page(premium_browser, base_url, link, path, heading):
+    """E2E-NAV-02: each tab client-routes to its page (URL + heading).
+
+    Runs under a premium session — the analytics/compare/similar tabs are gated,
+    so an anonymous click would redirect to /login instead of routing.
+    """
+    premium_browser.goto(f"{base_url}/")
+    premium_browser.get_by_test_id(f"nav-link-{link}").click()
+    expect(premium_browser).to_have_url(f"{base_url}{path}")
+    expect(premium_browser.get_by_role("heading", name=heading)).to_be_visible()
 
 
 @pytest.mark.p1
-def test_deeplink_subroute_served_by_spa_fallback(page, base_url):
+def test_deeplink_subroute_served_by_spa_fallback(premium_browser, base_url):
     """E2E-NAV-04: direct load of /compare works (nginx try_files fallback)."""
-    page.goto(f"{base_url}/compare")
-    expect(page.get_by_role("heading", name="Compare Pokemon")).to_be_visible()
+    premium_browser.goto(f"{base_url}/compare")
+    expect(premium_browser.get_by_role("heading", name="Compare Pokemon")).to_be_visible()
 
 
 @pytest.mark.p2
-def test_active_tab_highlighted(page, base_url):
+def test_active_tab_highlighted(premium_browser, base_url):
     """E2E-NAV-03: the current tab exposes aria-current=page (react-router NavLink)."""
-    page.goto(f"{base_url}/compare")
-    expect(page.get_by_test_id("nav-link-compare")).to_have_attribute("aria-current", "page")
-    expect(page.get_by_test_id("nav-link-select")).not_to_have_attribute("aria-current", "page")
+    premium_browser.goto(f"{base_url}/compare")
+    expect(premium_browser.get_by_test_id("nav-link-compare")).to_have_attribute("aria-current", "page")
+    expect(premium_browser.get_by_test_id("nav-link-select")).not_to_have_attribute("aria-current", "page")
 
 
 @pytest.mark.p3

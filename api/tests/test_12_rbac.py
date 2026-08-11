@@ -17,10 +17,14 @@ PREMIUM_IDS = ["analytics", "similar", "compare"]
 @pytest.mark.p0
 @pytest.mark.parametrize(
     "path",
-    ["health", "pokemon/", "pokemon/1", "types/", "billing/plans"],
+    ["health", "pokemon/", "pokemon/1", "types/", "billing/plans", "analytics/stat-ranges"],
 )
 def test_public_endpoints_anonymous(api, path):
-    """TC-RBAC-01: public endpoints need no auth."""
+    """TC-RBAC-01: public endpoints need no auth.
+
+    `analytics/stat-ranges` is public on purpose — it feeds the min/max slider
+    bounds on the public search page (the rest of analytics/* is premium).
+    """
     assert api.get(path).status_code == 200
 
 

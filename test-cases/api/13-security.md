@@ -17,6 +17,14 @@ of scope** here (different layer / not owned by the app):
 - **Security response headers** (HSTS, CSP, X-Content-Type-Options) — nginx/proxy
   configuration, not the application.
 
+> **⚠️ Safety — disposable stands only.** Some cases send **destructive**
+> payloads (e.g. `'; DROP TABLE users;--` in TC-SEC-04). They are safe against
+> this SUT because it parametrizes queries, but the payload is real. Run this
+> file **only** against an ephemeral, throwaway stand (the CI docker-compose
+> stack or a local fixture-seeded DB) — never against a shared or persistent
+> environment. If `POKETESTS_BASE_URL` could ever point at real data, do not run
+> the security suite there.
+
 | ID | Title | Prio | Technique |
 |----|-------|------|-----------|
 | TC-SEC-01 | Mass assignment — no privilege escalation at register | P0 | EG/DT |
@@ -97,7 +105,8 @@ Credential fields must be treated as data, never concatenated into SQL.
 
 SQLAlchemy parametrizes queries, so this is expected to be safe — the case
 **documents and guards** that (regression protection akin to BUG-001's
-LIKE-wildcard finding).
+LIKE-wildcard finding). The `DROP TABLE` payload is a real string; see the
+**Safety** note above — run only against a disposable stand.
 
 ### TC-SEC-05 — Injection payload stored inertly · P2 · EG
 **Steps:** register with `email` containing an injection/HTML payload

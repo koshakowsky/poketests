@@ -2,6 +2,9 @@
 
 Application-layer security checks. Transport (TLS), rate-limiting and proxy
 headers are out of scope here — see the file's "Scope & boundary".
+
+Safety: some cases send destructive payloads (e.g. "DROP TABLE users" in
+TC-SEC-04). Run only against a disposable stand — never a shared/persistent one.
 """
 
 import base64

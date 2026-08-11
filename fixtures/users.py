@@ -65,6 +65,18 @@ def free_user(make_user) -> User:
 
 
 @pytest.fixture
+def make_premium_user(api, make_user):
+    """Factory: a fresh user already upgraded to premium via checkout. Use when a
+    test needs to MUTATE the subscription (cancel/re-subscribe); the shared
+    premium_token must stay read-only."""
+    def _make() -> User:
+        user = make_user()
+        _checkout_premium(api, user.token)
+        return user
+    return _make
+
+
+@pytest.fixture
 def free_token(free_user) -> str:
     return free_user.token
 
