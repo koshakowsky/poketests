@@ -174,13 +174,63 @@ jobs:
         working-directory: sut
         run: docker compose logs --tail=200
 
-  # Publishes a browsable Allure report to GitHub Pages from the main suite's
-  # results. Only on pushes to main (not PRs), and even if tests failed — a
-  # report is most useful when something is red. Requires Pages source set to
-  # "GitHub Actions" in the repo settings.
+  contract-tests:
+    name: Contract (schemathesis vs live OpenAPI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Checkout SUT
+        uses: actions/checkout@v7
+        with:
+          repository: koshakowsky/pokeanalytics
+          ref: main
+          path: sut
+
+      - name: Start SUT stack (hermetic fixture seed)
+        working-directory: sut
+        run: docker compose up -d --build --wait
+        env:
+          AUTO_SEED: "1"
+          AUTO_SEED_SOURCE: "fixture"
+
+      - name: Assert dataset is ready
+        run: |
+          total=$(curl -sf 'http://localhost/api/pokemon/?limit=1' | jq -r .total)
+          [ "$total" = "151" ] || { echo "expected 151 pokemon, got: $total"; exit 1; }
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install contract dependencies
+        run: pip install -r contract/requirements.txt
+
+      - name: Run contract suite (fuzz every operation from the live schema)
+        run: pytest contract --alluredir=allure-results
+        env:
+          POKETESTS_BASE_URL: http://localhost/api
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-results-contract
+          path: allure-results
+
+      - name: SUT logs on failure
+        if: failure()
+        working-directory: sut
+        run: docker compose logs --tail=200
+
+  # Publishes a browsable Allure report to GitHub Pages. Merges results from all
+  # three layers: the API suite (this workflow), the contract suite (this
+  # workflow) and the E2E suite (from the latest ui-tests run). Only on pushes
+  # to main, even if tests failed — a report is most useful when something is
+  # red. Requires Pages source set to "GitHub Actions" in the repo settings.
   publish-report:
     name: Publish Allure report
-    needs: api-tests
+    needs: [api-tests, contract-tests]
     if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -197,11 +247,36 @@ jobs:
       - name: Checkout test repo
         uses: actions/checkout@v7
 
-      - name: Download suite results
+      - name: Download API suite results
         uses: actions/download-artifact@v8
         with:
           name: allure-results-api-tests
           path: allure-results
+
+      # Contract results come from this same workflow run.
+      - name: Download contract results
+        uses: actions/download-artifact@v8
+        with:
+          name: allure-results-contract
+          path: allure-results
+
+      # E2E lives in a separate workflow (ui-tests). Pull the full-suite
+      # (chromium) results from its latest successful run and merge them in.
+      # Best-effort: the first push before any E2E run has no artifact yet.
+      - name: Merge in E2E results (latest ui-tests run)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rid=$(gh run list --workflow=ui-tests.yml --branch=main --status=success \
+                  --limit=1 --json databaseId --jq '.[0].databaseId' || true)
+          if [ -n "$rid" ]; then
+            echo "Merging E2E results from ui-tests run $rid"
+            gh run download "$rid" -n allure-results-e2e-chromium -D allure-results || \
+              echo "no chromium E2E artifact on run $rid"
+          else
+            echo "no successful ui-tests run yet — skipping E2E merge"
+          fi
 
       # Trends (pass/fail, duration over runs) require the previous report's
       # history/ folder fed back into the new results. We pull it from the

@@ -35,22 +35,33 @@ SUT_ENDPOINTS = [
     ("GET /api/types/", True),
     ("GET /api/types/{id}/effectiveness", True),
     ("POST /api/admin/seed", True),
+    ("POST /api/auth/register", True),
+    ("POST /api/auth/login", True),
+    ("GET /api/auth/me", True),
+    ("GET /api/billing/plans", True),
+    ("GET /api/billing/subscription", True),
+    ("POST /api/billing/checkout", True),
+    ("POST /api/billing/cancel", True),
+    ("GET /api/admin/users", True),
 ]
 
 PYRAMID = [
-    ("E2E (Playwright)", "planned", "UI journeys — next milestone"),
+    ("E2E (Playwright)", "active", "UI journeys over Page Objects — auth, checkout, search, compare"),
     ("API / integration", "active", "this suite — router + service + DB over HTTP"),
-    ("Contract", "planned", "schemathesis against the live OpenAPI schema"),
+    ("Contract", "active", "schemathesis fuzzes every operation from the live OpenAPI schema"),
     ("Unit", "partial", "pure functions + pytest smoke in the SUT repo"),
 ]
 
 BUGS = [
     ("BUG-001", "LIKE-wildcard injection in the name filter", "fixed"),
     ("BUG-002", "Unstable pagination (no sort tiebreaker)", "fixed"),
+    ("BUG-003", "Cross-user idempotency key collision (500)", "fixed"),
+    ("BUG-004", "Out-of-range integer param returns 500", "fixed"),
 ]
 
 TECHNIQUES = ["EP", "BVA", "Pairwise", "Decision tables", "Error guessing", "State/seq"]
-STACK = ["Python", "pytest", "httpx", "pydantic", "allpairspy", "Allure", "Docker", "GitHub Actions"]
+STACK = ["Python", "pytest", "httpx", "Playwright", "schemathesis", "pydantic",
+         "allpairspy", "Allure", "Docker", "GitHub Actions"]
 
 LINKS = [
     ("Full Allure report", "allure/"),
@@ -203,7 +214,7 @@ ul.cov li.no::before {{ content:"·"; color:var(--muted); position:absolute; lef
 footer {{ margin-top:28px; color:var(--muted); font-size:12px; text-align:center; }}
 </style></head><body><div class="wrap">
 <header><h1>◓ PokéAnalytics — Test Health</h1>
-<span class="sub">API test suite · project dashboard</span></header>
+<span class="sub">API · E2E · Contract — project dashboard</span></header>
 <div class="meta">Generated from CI run #{html.escape(str(run))}{(' · ' + sha) if sha else ''} · {html.escape(when)}</div>
 
 <div class="grid">

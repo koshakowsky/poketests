@@ -62,7 +62,9 @@ def test_register_email_format_not_validated(api):
     """TC-AUTH-05: documents actual — email is a plain str, so a malformed
     address is accepted (201). Pins the current contract; a future switch to
     EmailStr would flip this to 422 and this test would flag it."""
-    r = api.post("auth/register", json={"email": "not-an-email", "password": "password123"})
+    # Malformed (no @) but unique per run, so a persistent DB doesn't 409.
+    malformed = f"not-an-email-{uuid.uuid4().hex}"
+    r = api.post("auth/register", json={"email": malformed, "password": "password123"})
     assert r.status_code == 201
 
 
