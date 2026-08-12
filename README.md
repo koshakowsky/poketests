@@ -1,8 +1,9 @@
 # PokéAnalytics — Test Suite (API + E2E)
 
 [![API tests](https://github.com/koshakowsky/poketests/actions/workflows/api-tests.yml/badge.svg)](https://github.com/koshakowsky/poketests/actions/workflows/api-tests.yml)
-[![Health dashboard](https://img.shields.io/badge/health-dashboard-4f46e5)](https://koshakowsky.github.io/poketests/)
 [![Allure report](https://img.shields.io/badge/Allure-report-8A2BE2)](https://koshakowsky.github.io/poketests/allure/)
+[![Health dashboard](https://img.shields.io/badge/health-dashboard-4f46e5)](https://koshakowsky.github.io/poketests/)
+
 
 Test design **and** automation for the
 [**pokeanalytics**](https://github.com/koshakowsky/pokeanalytics) system under
@@ -16,9 +17,10 @@ pairwise / decision tables / error guessing / state) · **auth & authorization**
 coverage — JWT login, a tier-based RBAC access matrix (401-vs-403) and a
 realistic fake-checkout state machine (card validation, declines, idempotency) ·
 API automation with exact, dataset-profile-driven oracles · E2E journeys over
-Page Objects on `data-testid` hooks · CI gate + browser matrix · a live health
-dashboard and Allure report · 2 defects found by test design and driven through
-the full report→fix→guard cycle.
+Page Objects on `data-testid` hooks · **contract fuzzing** of every operation
+(schemathesis vs the live OpenAPI schema) · CI gate + browser matrix · a live
+health dashboard and Allure report · **4 defects** found by test design and
+driven through the full report→fix→guard cycle.
 
 > **Why a separate repository?** In a product setting a suite that targets a
 > single service would live in that service's repo (atomic changes, no
@@ -39,6 +41,7 @@ poketests/
 ├── conftest.py          shared: api client, canary (SUT up + dataset), Allure hook
 ├── dataset.py           dataset profile — data assumptions in one place
 ├── pytest.ini           shared markers + config
+├── fixtures/            shared fixtures registered via pytest_plugins (users/tiers)
 ├── test-cases/          design catalog (api/ + e2e/, mirrors the suites)
 ├── bugs/  tools/         bug reports · pairwise + dashboard generators
 ├── api/                 API SUITE  →  pytest api
@@ -46,6 +49,10 @@ poketests/
 │   ├── conftest.py      API-specific: seed-mode probe & gate
 │   ├── schemas.py       independent response models (shape validation)
 │   └── tests/
+├── contract/            CONTRACT SUITE  →  pytest contract
+│   ├── requirements.txt
+│   ├── conftest.py      live-schema loader + premium auth
+│   └── tests/           schemathesis fuzzes every operation
 └── e2e/                 E2E SUITE  →  pytest e2e
     ├── requirements.txt
     ├── conftest.py      base_url + Page Object fixtures
@@ -70,10 +77,13 @@ poketests/
 - **Unit (bottom).** Pure logic without HTTP/DB: cosine/magnitude similarity,
   type-advantage calculation, CSV parsing of `types`. Cheap — have many.
 - **Contract (between unit and API).** The SUT publishes a live OpenAPI schema
-  (`/api/openapi.json`) — the source of truth for the contract. This is the slot
-  for generative contract tests (schemathesis): every endpoint is fuzzed with
-  schema-derived data and responses are validated against the same schema.
-  Schema availability is pinned by TC-ENV-03.
+  (`/api/openapi.json`) — the source of truth for the contract. The `contract/`
+  suite (schemathesis) fuzzes **every** operation with schema-derived data and
+  validates each response against that schema (`not_a_server_error` +
+  response/content-type conformance). It found and now guards two robustness
+  defects — [BUG-004](bugs/BUG-004-integer-overflow-500.md) (out-of-range int →
+  500) and a naive-datetime schema violation. Schema availability is pinned by
+  TC-ENV-03.
 - **API / integration (middle, our focus).** HTTP requests against a running
   service: status codes, response shape, business rules and validation. Most
   cases in this catalog live here.
@@ -256,7 +266,8 @@ automation in [e2e/](e2e/) (`pytest e2e`) — see *Running* below.
 
 Both need the SUT up (`docker compose up` in pokeanalytics) so the API — and,
 for E2E, the frontend — are reachable. `pytest.ini` sets `testpaths = api/tests`,
-so a bare `pytest` runs the API suite; E2E is opt-in via the `e2e` path.
+so a bare `pytest` runs the API suite; the `contract` and `e2e` suites are
+opt-in via their paths.
 
 ### API suite
 
@@ -270,6 +281,21 @@ POKETESTS_BASE_URL=http://localhost:8000/api pytest api   # non-default SUT
 
 `restricted` tests are excluded by default (`-m "not restricted"` in
 `pytest.ini`); an explicit `-m` on the command line overrides the filter.
+
+### Contract suite
+
+```bash
+pip install -r contract/requirements.txt
+pytest contract               # schemathesis fuzzes every operation
+POKETESTS_BASE_URL=http://localhost/api pytest contract
+```
+
+Loads the live schema from `/api/openapi.json`, fuzzes each operation with
+schema-derived data (authenticated as premium so gated routes are exercised),
+and runs `not_a_server_error` + response/content-type conformance.
+`status_code_conformance` is intentionally off — FastAPI only auto-documents
+200/201 and 422, so it would flag every legitimate business error (401/403/404/
+409) as undocumented.
 
 ### E2E suite
 
@@ -370,13 +396,14 @@ to maintain.
 
 ## Defects found by test design (full lifecycle)
 
-Both were found by test design, documented as bug reports, encoded as
-`xfail(strict)` tests against the specification, then **fixed in the SUT** —
-at which point the `xfail` came off and each test became a permanent
-regression guard. This report → fix → guard cycle is the point.
+All were found by test design (or fuzzing), documented as bug reports, encoded
+as a test against the specification, then **fixed in the SUT** — at which point
+the test became a permanent regression guard. This report → fix → guard cycle is
+the point.
 
 | Case | Bug report | Defect | Status |
 |------|-----------|--------|--------|
 | TC-LIST-28 | [BUG-001](bugs/BUG-001-like-wildcard-injection.md) | LIKE-wildcard injection (`name=%` matched everything) | ✅ Fixed — regression guard |
 | TC-LIST-29 | [BUG-002](bugs/BUG-002-unstable-pagination-order.md) | Unstable pagination (no tiebreaker on a non-unique sort key) | ✅ Fixed — regression guard |
 | TC-BILL-19 | [BUG-003](bugs/BUG-003-cross-user-idempotency-collision.md) | Cross-user idempotency key collision → 500 (global PK) | ✅ Fixed — regression guard |
+| contract | [BUG-004](bugs/BUG-004-integer-overflow-500.md) | Out-of-range integer param → 500 (SQLite overflow) | ✅ Fixed — schemathesis guard |
