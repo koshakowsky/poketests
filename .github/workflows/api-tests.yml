@@ -17,6 +17,17 @@ env:
   SUT_REF: main
 
 jobs:
+  # Static check, no SUT needed: every designed case must be executed by a test.
+  traceability:
+    name: Catalog ↔ automation traceability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python tools/check_traceability.py --strict
+
   api-tests:
     name: Full suite (seed disabled, default dataset)
     runs-on: ubuntu-latest
