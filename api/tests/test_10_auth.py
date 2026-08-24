@@ -1,20 +1,17 @@
-"""Auth — test-cases/10-auth.md"""
+"""Auth - test-cases/10-auth.md"""
 
 import uuid
 
 import pytest
 
+from fixtures.users import unique_email
 from schemas import TokenResponse, UserOut
-
-
-def _email() -> str:
-    return f"user+{uuid.uuid4().hex}@test.io"
 
 
 @pytest.mark.p0
 def test_register_new_user(api):
     """TC-AUTH-01: register -> 201, free tier, UserOut shape (no password leak)."""
-    email = _email()
+    email = unique_email()
     r = api.post("auth/register", json={"email": email, "password": "password123"})
     assert r.status_code == 201
     body = UserOut.model_validate(r.json())
@@ -26,7 +23,7 @@ def test_register_new_user(api):
 @pytest.mark.p1
 def test_register_duplicate_email(api):
     """TC-AUTH-02: same email twice -> 409."""
-    email = _email()
+    email = unique_email()
     payload = {"email": email, "password": "password123"}
     assert api.post("auth/register", json=payload).status_code == 201
     dup = api.post("auth/register", json=payload)
@@ -42,7 +39,7 @@ def test_register_duplicate_email(api):
 )
 def test_register_password_length(api, password, expected):
     """TC-AUTH-03: BVA on password min_length=8."""
-    r = api.post("auth/register", json={"email": _email(), "password": password})
+    r = api.post("auth/register", json={"email": unique_email(), "password": password})
     assert r.status_code == expected
 
 
@@ -59,7 +56,7 @@ def test_register_invalid_body(api, payload):
 
 @pytest.mark.p2
 def test_register_email_format_not_validated(api):
-    """TC-AUTH-05: documents actual — email is a plain str, so a malformed
+    """TC-AUTH-05: documents actual - email is a plain str, so a malformed
     address is accepted (201). Pins the current contract; a future switch to
     EmailStr would flip this to 422 and this test would flag it."""
     # Malformed (no @) but unique per run, so a persistent DB doesn't 409.
@@ -94,9 +91,20 @@ def test_login_unknown_email_no_enumeration(api, make_user):
     so the two cases are indistinguishable (no user enumeration)."""
     user = make_user()
     wrong_pw = api.post("auth/login", json={"email": user.email, "password": "nope"})
-    unknown = api.post("auth/login", json={"email": _email(), "password": "password123"})
+    unknown = api.post("auth/login", json={"email": unique_email(), "password": "password123"})
     assert unknown.status_code == wrong_pw.status_code == 401
     assert unknown.json()["detail"] == wrong_pw.json()["detail"]
+
+
+@pytest.mark.p2
+@pytest.mark.parametrize(
+    "payload",
+    [{"email": "a@b.io"}, {"password": "password123"}, {}],
+    ids=["no-password", "no-email", "empty"],
+)
+def test_login_invalid_body(api, payload):
+    """TC-AUTH-09: body validation runs before any credential check -> 422, not 401."""
+    assert api.post("auth/login", json=payload).status_code == 422
 
 
 @pytest.mark.p0
@@ -156,7 +164,7 @@ def test_register_login_me_round_trip(api, make_user, auth_headers):
 def test_password_never_returned(api, make_user, auth_headers):
     """TC-AUTH-15: no password/hash field in register or /me bodies."""
     user = make_user()
-    reg = api.post("auth/register", json={"email": _email(), "password": "password123"}).json()
+    reg = api.post("auth/register", json={"email": unique_email(), "password": "password123"}).json()
     me = api.get("auth/me", headers=auth_headers(user.token)).json()
     for body in (reg, me):
         assert "password" not in body

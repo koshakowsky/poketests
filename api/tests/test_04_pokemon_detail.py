@@ -1,13 +1,14 @@
-"""Pokemon detail — test-cases/04-pokemon-detail.md"""
+"""Pokemon detail - test-cases/04-pokemon-detail.md"""
 
 import pytest
 
 from dataset import PROFILE
 from schemas import PokemonDetail
 
+
 @pytest.mark.p0
 def test_detail_of_existing_pokemon(api):
-    """TC-DET-01: bulbasaur card — id, name, stats, both types (shape test)."""
+    """TC-DET-01: bulbasaur card - id, name, stats, both types (shape test)."""
     anchor = PROFILE.bulbasaur
     r = api.get(f"pokemon/{anchor.id}")
     assert r.status_code == 200
@@ -17,6 +18,24 @@ def test_detail_of_existing_pokemon(api):
     assert body["name"] == anchor.name
     assert body["stat_total"] == anchor.stat_total
     assert {t["name"] for t in body["types"]} == anchor.types
+
+
+@pytest.mark.p1
+def test_detail_computed_fields(api):
+    """TC-DET-02: height_m/weight_kg are derived from the raw decimetre and
+    hectogram values, not stored separately."""
+    body = api.get(f"pokemon/{PROFILE.bulbasaur.id}").json()
+    assert body["height_m"] == pytest.approx(body["height"] / 10)
+    assert body["weight_kg"] == pytest.approx(body["weight"] / 10)
+
+
+@pytest.mark.p1
+def test_detail_relations_present(api):
+    """TC-DET-03: the eager-loaded relations are populated and ordered by slot."""
+    body = api.get("pokemon/6").json()  # charizard: fire/flying, dual-type
+    assert [t["name"] for t in body["types"]] == ["fire", "flying"]
+    assert body["abilities"] and all(a["name"] for a in body["abilities"])
+    assert isinstance(body["egg_groups"], list)
 
 
 @pytest.mark.p0
@@ -31,7 +50,7 @@ def test_detail_not_found(api):
 @pytest.mark.parametrize(
     "pokemon_id, expected_status",
     [
-        (PROFILE.max_id, 200),      # highest seeded record
+        (PROFILE.max_id, 200),  # highest seeded record
         (PROFILE.max_id + 1, 404),  # just past the set
         (0, 404),
         (-1, 404),

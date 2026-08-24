@@ -8,8 +8,7 @@ from allure_commons.types import Severity
 
 from dataset import PROFILE
 
-# Fixture modules registered as plugins (must live in the root conftest).
-pytest_plugins = ["fixtures.users"]
+pytest_plugins = ["fixtures.users"]   # fixtures.billing holds builders, not fixtures
 
 BASE_URL = os.getenv("POKETESTS_BASE_URL", "http://localhost/api")
 
@@ -22,7 +21,10 @@ SEVERITY_BY_PRIORITY = {
     "p3": Severity.MINOR,
 }
 
-TC_ID_PATTERN = re.compile(r"TC-[A-Z]+-\d+")
+
+TC_ID_PATTERN = re.compile(r"(?:TC|E2E)-[A-Z][A-Z0-9]*-\d+")
+
+LAYER_BY_DIR = {"api": "API", "e2e": "E2E", "contract": "Contract"}
 
 
 def pytest_collection_modifyitems(items):
@@ -31,6 +33,10 @@ def pytest_collection_modifyitems(items):
             if item.get_closest_marker(priority):
                 item.add_marker(allure.severity(severity))
                 break
+
+        layer = LAYER_BY_DIR.get(item.nodeid.split("/", 1)[0])
+        if layer:
+            item.add_marker(allure.parent_suite(layer))
 
         module = item.module.__name__.removeprefix("test_")
         feature = module.replace("_", " ").capitalize()
@@ -52,6 +58,13 @@ def api() -> httpx.Client:
 
 @pytest.fixture(scope="session", autouse=True)
 def canary(api: httpx.Client) -> None:
+    """TC-ENV-01, TC-ENV-02, TC-ENV-03: run entry criteria (fail-fast).
+
+    Implemented as a session fixture rather than as tests on purpose: a broken
+    precondition invalidates the whole run, so it must abort before the suite
+    instead of adding three more red results to dozens of noisy failures. The
+    trade-off is that these IDs carry no Allure tag - they are gate, not case.
+    """
     try:
         health = api.get("health")
     except httpx.HTTPError as exc:

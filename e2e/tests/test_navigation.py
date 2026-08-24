@@ -1,4 +1,4 @@
-"""E2E · Navigation — test-cases/e2e/01-navigation.md"""
+"""E2E · Navigation - test-cases/e2e/01-navigation.md"""
 
 import pytest
 from playwright.sync_api import expect
@@ -28,7 +28,7 @@ def test_app_shell_loads(page, base_url):
 def test_nav_routes_to_page(premium_browser, base_url, link, path, heading):
     """E2E-NAV-02: each tab client-routes to its page (URL + heading).
 
-    Runs under a premium session — the analytics/compare/similar tabs are gated,
+    Runs under a premium session - the analytics/compare/similar tabs are gated,
     so an anonymous click would redirect to /login instead of routing.
     """
     premium_browser.goto(f"{base_url}/")

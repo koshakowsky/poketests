@@ -1,30 +1,23 @@
-"""Billing & checkout — test-cases/11-billing-checkout.md"""
+"""Billing & checkout - test-cases/11-billing-checkout.md"""
 
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import pytest
 from pydantic import TypeAdapter
 
 from dataset import CARDS
-from fixtures.users import future_expiry
+from fixtures.billing import build_card, future_expiry
 from schemas import PlanOut, SubscriptionOut
 
 PLAN_LIST = TypeAdapter(list[PlanOut])
 
 
-def _card(number=CARDS.visa_ok, cvc="123", month=None, year=None):
-    m, y = future_expiry()
-    return {
-        "number": number,
-        "exp_month": m if month is None else month,
-        "exp_year": y if year is None else year,
-        "cvc": cvc,
-    }
 
 
 def _checkout(api, user, card=None, plan_id="premium", key=None):
-    body = {"plan_id": plan_id, "card": card or _card()}
+    body = {"plan_id": plan_id, "card": card or build_card()}
     if key is not None:
         body["idempotency_key"] = key
     return api.post("billing/checkout", headers=user.headers, json=body)
@@ -74,15 +67,15 @@ def test_checkout_happy_path(api, free_user):
     "number, expected_status, expected_code",
     [
         (CARDS.luhn_invalid, 422, "invalid_number"),
-        ("424242424242", 422, "invalid_number"),   # 12 digits, below min length
+        ("424242424242", 422, "invalid_number"),  # 12 digits, below min length
         (CARDS.visa_ok, 200, None),
-        ("4242 4242 4242 4242", 200, None),          # formatting is normalized
+        ("4242 4242 4242 4242", 200, None),  # formatting is normalized
     ],
     ids=["luhn-fail", "too-short", "valid", "formatted"],
 )
 def test_checkout_card_number(api, make_user, number, expected_status, expected_code):
     """TC-BILL-04: card number validation (Luhn + length)."""
-    r = _checkout(api, make_user(), card=_card(number=number))
+    r = _checkout(api, make_user(), card=build_card(number=number))
     assert r.status_code == expected_status
     if expected_code:
         assert _error_code(r) == expected_code
@@ -102,7 +95,7 @@ def test_checkout_card_number(api, make_user, number, expected_status, expected_
 def test_checkout_expiry(api, make_user, month, year_delta, expected_status, expected_code):
     """TC-BILL-05: expiry month bounds and past/future date."""
     year = datetime.now(timezone.utc).year + year_delta
-    r = _checkout(api, make_user(), card=_card(month=month, year=year))
+    r = _checkout(api, make_user(), card=build_card(month=month, year=year))
     assert r.status_code == expected_status
     if expected_code:
         assert _error_code(r) == expected_code
@@ -122,7 +115,7 @@ def test_checkout_expiry(api, make_user, month, year_delta, expected_status, exp
 )
 def test_checkout_cvc_length_by_brand(api, make_user, number, cvc, expected_status):
     """TC-BILL-06: CVC length depends on brand (amex 4, others 3)."""
-    r = _checkout(api, make_user(), card=_card(number=number, cvc=cvc))
+    r = _checkout(api, make_user(), card=build_card(number=number, cvc=cvc))
     assert r.status_code == expected_status
     if expected_status == 422:
         assert _error_code(r) == "invalid_cvc"
@@ -137,7 +130,7 @@ def test_checkout_cvc_length_by_brand(api, make_user, number, cvc, expected_stat
 def test_checkout_declined(api, make_user, number, expected_code):
     """TC-BILL-07: a format-valid card the gateway declines -> 402, user stays free."""
     user = make_user()
-    r = _checkout(api, user, card=_card(number=number))
+    r = _checkout(api, user, card=build_card(number=number))
     assert r.status_code == 402
     assert _error_code(r) == expected_code
     assert api.get("auth/me", headers=user.headers).json()["tier"] == "free"
@@ -165,7 +158,7 @@ def test_checkout_already_subscribed(api, make_user):
 @pytest.mark.p1
 def test_checkout_precedence_plan_before_card(api, free_user):
     """TC-BILL-10: unknown plan wins over an invalid card (404, not 422)."""
-    r = _checkout(api, free_user, card=_card(number=CARDS.luhn_invalid), plan_id="gold")
+    r = _checkout(api, free_user, card=build_card(number=CARDS.luhn_invalid), plan_id="gold")
     assert r.status_code == 404
     assert _error_code(r) == "unknown_plan"
 
@@ -173,7 +166,7 @@ def test_checkout_precedence_plan_before_card(api, free_user):
 @pytest.mark.p1
 def test_checkout_idempotency_replays_result(api, make_user):
     """TC-BILL-11: same idempotency_key returns the identical body (same
-    period_end) — the stored response is replayed, not recomputed."""
+    period_end) - the stored response is replayed, not recomputed."""
     user = make_user()
     key = uuid.uuid4().hex
     first = _checkout(api, user, key=key)
@@ -183,9 +176,34 @@ def test_checkout_idempotency_replays_result(api, make_user):
     assert second.json() == first.json()
 
 
+@pytest.mark.p1
+def test_concurrent_double_submit_charges_once(api, make_user):
+    """TC-BILL-20: two in-flight checkouts with one key must not double-charge.
+
+    TC-BILL-11 covers the sequential retry; here the second request reaches the
+    cache lookup before the first has written it. Both 200/200 and 200/409 are
+    correct single-charge outcomes, so the oracle is the invariant.
+    """
+    user = make_user()
+    key = uuid.uuid4().hex
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = [
+            f.result() for f in [pool.submit(_checkout, api, user, key=key) for _ in range(2)]
+        ]
+
+    codes = sorted(r.status_code for r in responses)
+    assert all(c != 500 for c in codes), f"server error on concurrent submit: {codes}"
+    assert codes in ([200, 200], [200, 409]), f"unexpected outcome pair: {codes}"
+
+    sub = api.get("billing/subscription", headers=user.headers).json()
+    assert sub["status"] == "active"
+    assert api.get("auth/me", headers=user.headers).json()["tier"] == "premium"
+
+
 @pytest.mark.p2
 def test_idempotency_key_is_scoped_per_user(api, make_user):
-    """TC-BILL-19 / BUG-003: an idempotency key is per-user — two users may
+    """TC-BILL-19 / BUG-003: an idempotency key is per-user - two users may
     reuse the same key without colliding (was a global PK -> 500)."""
     key = uuid.uuid4().hex
     u1, u2 = make_user(), make_user()
@@ -241,7 +259,10 @@ def test_reactivation_after_cancel(api, make_user):
 @pytest.mark.p2
 @pytest.mark.parametrize(
     "body",
-    [{"plan_id": "premium"}, {"card": {"number": CARDS.visa_ok, "exp_month": 12, "exp_year": 2030, "cvc": "123"}}],
+    [
+        {"plan_id": "premium"},
+        {"card": {"number": CARDS.visa_ok, "exp_month": 12, "exp_year": 2030, "cvc": "123"}},
+    ],
     ids=["no-card", "no-plan"],
 )
 def test_checkout_body_validation(api, free_user, body):
@@ -253,7 +274,7 @@ def test_checkout_body_validation(api, free_user, body):
 @pytest.mark.p2
 def test_amex_happy_path(api, make_user):
     """TC-BILL-18: amex with a 4-digit CVC -> 200, brand amex, last4 0005."""
-    r = _checkout(api, make_user(), card=_card(number=CARDS.amex_ok, cvc="1234"))
+    r = _checkout(api, make_user(), card=build_card(number=CARDS.amex_ok, cvc="1234"))
     assert r.status_code == 200
     sub = SubscriptionOut.model_validate(r.json())
     assert sub.card_brand == "amex"

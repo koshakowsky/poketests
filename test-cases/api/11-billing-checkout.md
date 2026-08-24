@@ -1,19 +1,19 @@
-# Billing & checkout — `GET /api/billing/plans`, `POST /api/billing/checkout`, `GET /api/billing/subscription`, `POST /api/billing/cancel`
+# Billing & checkout - `GET /api/billing/plans`, `POST /api/billing/checkout`, `GET /api/billing/subscription`, `POST /api/billing/cancel`
 
 A **fake but realistic** checkout: no external gateway (hermetic, CI-safe), but
 a real state machine with card validation, decline simulation and idempotency.
 This is the richest DT/BVA surface in the suite.
 
 **Contract:**
-- `GET /api/billing/plans` — **public**. List of plans; one paid plan
+- `GET /api/billing/plans` - **public**. List of plans; one paid plan
   `premium` `{id, name, price_cents, currency, interval}`.
-- `POST /api/billing/checkout` — **auth required**. Body
+- `POST /api/billing/checkout` - **auth required**. Body
   `{plan_id, card:{number, exp_month, exp_year, cvc}, idempotency_key?}`.
   Validates the card, "charges" it, on success upgrades the user to **premium**
   and creates/reactivates a subscription.
-- `GET /api/billing/subscription` — **auth required**. Current subscription;
+- `GET /api/billing/subscription` - **auth required**. Current subscription;
   `status ∈ {none, active, canceled}`.
-- `POST /api/billing/cancel` — **auth required**. Cancels an active
+- `POST /api/billing/cancel` - **auth required**. Cancels an active
   subscription and downgrades to **free**.
 
 **Error bodies** use a stable machine-readable shape: `{"detail":
@@ -35,13 +35,13 @@ come from the app with these codes, not as a generic Pydantic `422`.)
 | TC-BILL-01 | Plans are public and well-formed | P0 | EP |
 | TC-BILL-02 | Fresh user has no subscription (`status=none`) | P1 | ST |
 | TC-BILL-03 | Checkout happy → 200, active, tier→premium | P0 | EP/ST |
-| TC-BILL-04 | Checkout — card number validation (Luhn/length) | P0 | BVA/EG |
-| TC-BILL-05 | Checkout — expiry validation | P1 | BVA |
-| TC-BILL-06 | Checkout — CVC length by brand | P1 | DT/BVA |
-| TC-BILL-07 | Checkout — declined cards → 402 | P0 | DT |
-| TC-BILL-08 | Checkout — unknown plan → 404 | P1 | EG |
-| TC-BILL-09 | Checkout — already active → 409 | P1 | ST/DT |
-| TC-BILL-10 | Checkout — decision-table precedence | P1 | DT |
+| TC-BILL-04 | Checkout - card number validation (Luhn/length) | P0 | BVA/EG |
+| TC-BILL-05 | Checkout - expiry validation | P1 | BVA |
+| TC-BILL-06 | Checkout - CVC length by brand | P1 | DT/BVA |
+| TC-BILL-07 | Checkout - declined cards → 402 | P0 | DT |
+| TC-BILL-08 | Checkout - unknown plan → 404 | P1 | EG |
+| TC-BILL-09 | Checkout - already active → 409 | P1 | ST/DT |
+| TC-BILL-10 | Checkout - decision-table precedence | P1 | DT |
 | TC-BILL-11 | Idempotency key replays the same result | P1 | ST |
 | TC-BILL-12 | Subscription reflects active details (masked card) | P1 | EP |
 | TC-BILL-13 | Cancel active → 200, canceled, tier→free | P0 | ST |
@@ -51,10 +51,11 @@ come from the app with these codes, not as a generic Pydantic `422`.)
 | TC-BILL-17 | PAN / CVC never stored or returned in full | P1 | security |
 | TC-BILL-18 | Amex happy path (4-digit CVC) | P2 | EP |
 | TC-BILL-19 | Idempotency key is scoped per user | P2 | ST → BUG-003 |
+| TC-BILL-20 | Concurrent double-submit charges once | P1 | ST/concurrency |
 
 ---
 
-## Card validation — decision table (DT)
+## Card validation - decision table (DT)
 
 Semantic checks in `billing_cards.validate_card`, in this **fixed order** (one
 reason per rejection; tests rely on the specific `error_code`):
@@ -70,20 +71,20 @@ reason per rejection; tests rely on the specific `error_code`):
 
 ---
 
-### TC-BILL-01 — Plans are public · P0 · EP
+### TC-BILL-01 - Plans are public · P0 · EP
 **Request:** `GET /api/billing/plans` (**no** auth)
 **Expected:** `200`; a non-empty list; the `premium` plan present with
 `{id:"premium", name, price_cents:int>0, currency, interval}`. Public because a
 pricing page must render for anonymous visitors.
 
-### TC-BILL-02 — Fresh user has no subscription · P1 · ST
+### TC-BILL-02 - Fresh user has no subscription · P1 · ST
 **Precondition:** a newly registered (free) user, logged in.
 **Request:** `GET /api/billing/subscription`
 **Expected:** `200`; `body.status == "none"`; `plan`, `card_brand`,
 `card_last4`, `current_period_end` all `null`. (Absence is `status=none`, not
-`404` — one shape the client always renders.)
+`404` - one shape the client always renders.)
 
-### TC-BILL-03 — Checkout happy · P0 · EP/ST
+### TC-BILL-03 - Checkout happy · P0 · EP/ST
 **Precondition:** a free user, logged in.
 **Request:** `POST /api/billing/checkout`
 `{"plan_id":"premium","card":{"number":"4242424242424242","exp_month":12,"exp_year":<future>,"cvc":"123"}}`
@@ -93,7 +94,7 @@ card_brand:"visa", card_last4:"4242", current_period_end:<~30d ahead>}`.
 `GET /api/billing/subscription` → `status == "active"`. The tier change is
 readable on the **same** token (tier is read live from the DB).
 
-### TC-BILL-04 — Card number validation · P0 · BVA/EG
+### TC-BILL-04 - Card number validation · P0 · BVA/EG
 Length boundaries around [13, 19] plus the Luhn checksum. Automation builds
 Luhn-valid numbers of a target length; use the anchors below.
 
@@ -108,7 +109,7 @@ Luhn-valid numbers of a target length; use the anchors below.
 | 20-digit | above max length | `422 invalid_number` |
 | `"4242-4242-4242-4242"` / spaced | formatting stripped | `200` (normalized) |
 
-### TC-BILL-05 — Expiry validation · P1 · BVA
+### TC-BILL-05 - Expiry validation · P1 · BVA
 Card is valid **through** the end of the expiry month. `now` = the run date.
 
 | exp_month / exp_year | Class | Expected |
@@ -118,10 +119,10 @@ Card is valid **through** the end of the expiry month. `now` = the run date.
 | `1` / future year | valid month | `200` |
 | `12` / future year | valid month | `200` |
 | last month (e.g. `now.month-1` / `now.year`) | just expired | `422 card_expired` |
-| current month / current year | boundary — still valid | `200` |
+| current month / current year | boundary - still valid | `200` |
 | any month / `now.year-1` | past year | `422 card_expired` |
 
-### TC-BILL-06 — CVC length by brand · P1 · DT/BVA
+### TC-BILL-06 - CVC length by brand · P1 · DT/BVA
 CVC length depends on the brand (amex → 4, others → 3). A cross of
 brand × cvc-length.
 
@@ -135,10 +136,10 @@ brand × cvc-length.
 | any | `12a` (non-digit) | `422 invalid_cvc` |
 
 > Amex/visa CVC pairs each need a *fresh* free user (a success upgrades and
-> would then hit the `409` guard) — or run the `422` rows against one user and
+> would then hit the `409` guard) - or run the `422` rows against one user and
 > the `200` rows against fresh users.
 
-### TC-BILL-07 — Declined cards → 402 · P0 · DT
+### TC-BILL-07 - Declined cards → 402 · P0 · DT
 Card is format-valid; the gateway declines at the charge step.
 
 | Number | Expected |
@@ -147,64 +148,64 @@ Card is format-valid; the gateway declines at the charge step.
 | `4000000000009995` | `402`, `error_code == "insufficient_funds"` |
 
 **After a decline (verify):** the user stays **free** and `subscription.status`
-stays `none` — a failed charge must not upgrade or leave a dangling active sub.
+stays `none` - a failed charge must not upgrade or leave a dangling active sub.
 
-### TC-BILL-08 — Unknown plan → 404 · P1 · EG
+### TC-BILL-08 - Unknown plan → 404 · P1 · EG
 **Request:** checkout with `plan_id` = `"gold"` / `""` / `"PREMIUM"` (case).
 **Expected:** `404`, `error_code == "unknown_plan"`. Checked **before** the
 card (no point charging for a non-existent plan).
 
-### TC-BILL-09 — Already active → 409 · P1 · ST/DT
+### TC-BILL-09 - Already active → 409 · P1 · ST/DT
 **Precondition:** a user with an **active** subscription.
 **Request:** checkout again (valid card, **no** idempotency key).
 **Expected:** `409`, `error_code == "already_subscribed"`. Guards against double
 charging; checked **before** card validation.
 
-### TC-BILL-10 — Decision-table precedence · P1 · DT
+### TC-BILL-10 - Decision-table precedence · P1 · DT
 Multiple conditions can fail at once; the response must reflect the **first**
 failing check in precedence order: idempotency-hit → unknown_plan(404) →
 already_subscribed(409) → card validation(422) → charge(402) → success(200).
 
 | Scenario | Expected |
 |----------|----------|
-| active sub **and** invalid card | `409` (409 precedes 422 — active check first) |
+| active sub **and** invalid card | `409` (409 precedes 422 - active check first) |
 | unknown plan **and** invalid card | `404` (plan precedes card) |
 | valid state, invalid card **and** would-decline | `422` (format precedes charge) |
 
-### TC-BILL-11 — Idempotency replay · P1 · ST
+### TC-BILL-11 - Idempotency replay · P1 · ST
 **Steps:** checkout with `idempotency_key = "k1"` (success) → repeat the exact
 request with `"k1"`.
-**Expected:** the second call returns the **same** body — including the
-identical `current_period_end` — proving the stored response was replayed, not
+**Expected:** the second call returns the **same** body - including the
+identical `current_period_end` - proving the stored response was replayed, not
 recomputed. No second "charge", no error. A *different* key against the now-active
 sub → `409` (TC-BILL-09).
 
-### TC-BILL-12 — Subscription details (masked card) · P1 · EP
+### TC-BILL-12 - Subscription details (masked card) · P1 · EP
 **Precondition:** active subscription bought with visa `4242…4242`.
 **Request:** `GET /api/billing/subscription`
 **Expected:** `status:"active"`, `plan:"premium"`, `card_brand:"visa"`,
 `card_last4:"4242"`, `current_period_end` ~30 days out. Only the **last 4** are
-stored — see TC-BILL-17.
+stored - see TC-BILL-17.
 
-### TC-BILL-13 — Cancel active → downgrade · P0 · ST
+### TC-BILL-13 - Cancel active → downgrade · P0 · ST
 **Precondition:** active subscription.
 **Request:** `POST /api/billing/cancel`
 **Expected:** `200`; `status == "canceled"`. **Side effects:** `/me.tier ==
 "free"`; premium endpoints now return `403` for this user (see
 [12-rbac.md](12-rbac.md), TC-RBAC-08).
 
-### TC-BILL-14 — Cancel with nothing active → 409 · P1 · ST/DT
+### TC-BILL-14 - Cancel with nothing active → 409 · P1 · ST/DT
 | State | Expected |
 |-------|----------|
 | never subscribed | `409`, `no_active_subscription` |
 | already canceled | `409`, `no_active_subscription` |
 
-### TC-BILL-15 — Reactivation after cancel · P1 · ST
+### TC-BILL-15 - Reactivation after cancel · P1 · ST
 **Steps:** checkout → cancel → checkout again (valid card).
 **Expected:** final checkout `200`; `status == "active"` again; `/me.tier ==
 "premium"`. The subscription record is reused (one per user), not duplicated.
 
-### TC-BILL-16 — Checkout body validation → 422 · P2 · EG
+### TC-BILL-16 - Checkout body validation → 422 · P2 · EG
 Framework-level (before semantic card checks):
 
 | Body | Expected |
@@ -215,22 +216,42 @@ Framework-level (before semantic card checks):
 | `card` not an object | `422` |
 | empty / not JSON | `422` |
 
-### TC-BILL-17 — PAN / CVC not exposed · P1 · security
+### TC-BILL-17 - PAN / CVC not exposed · P1 · security
 **Steps:** inspect every billing response body (checkout, subscription).
-**Expected:** the full card number never appears — only `card_last4` (4 chars)
+**Expected:** the full card number never appears - only `card_last4` (4 chars)
 and `card_brand`; the **CVC is never stored or returned** in any form. The
 test-side `SubscriptionOut` (`extra="forbid"`) fails if a `card_number` / `cvc`
 field ever appears.
 
-### TC-BILL-18 — Amex happy path · P2 · EP
+### TC-BILL-18 - Amex happy path · P2 · EP
 **Request:** checkout with amex `378282246310005`, `cvc:"1234"` (4 digits),
 future expiry, fresh free user.
 **Expected:** `200`; `card_brand == "amex"`, `card_last4 == "0005"`; tier →
 premium. Confirms brand detection and the amex-specific CVC length end to end.
 
-### TC-BILL-19 — Idempotency key is scoped per user · P2 · ST → BUG-003
+### TC-BILL-20 - Concurrent double-submit charges once · P1 · ST/concurrency
+TC-BILL-11 replays the key **sequentially**, which is the retry case. The
+scenario that actually happens in production is different: an impatient user
+double-clicks Pay, and two identical requests are **in flight at the same
+time** - so the second one looks up the idempotency cache *before* the first
+one has written it. A sequential test cannot observe that window.
+
+**Steps:** with one user and one `idempotency_key`, fire two `POST /checkout`
+requests **in parallel** (threads).
+**Expected:** the user ends up **premium** with exactly **one** active
+subscription, and the outcome is unambiguous - either both requests return
+`200` with the identical body (the cache absorbed the duplicate) or one returns
+`200` and the other `409 already_subscribed` (the state guard absorbed it).
+Never two independent charges, and never a `500`.
+
+> The tolerated pair of outcomes is deliberate: both are correct
+> single-charge behaviours, and pinning only one would make the case
+> implementation-specific rather than contract-driven. What is asserted is the
+> **invariant** - one subscription, no server error.
+
+### TC-BILL-19 - Idempotency key is scoped per user · P2 · ST → BUG-003
 **Steps:** two different users each checkout with the **same** `idempotency_key`.
-**Expected:** both succeed independently (`200`/`200`), each ends up premium —
+**Expected:** both succeed independently (`200`/`200`), each ends up premium;
 one user's key never affects another's request. Regression guard for
 [BUG-003](../../bugs/BUG-003-cross-user-idempotency-collision.md): the key used
 to be a global primary key, so a cross-user collision returned `500`. The fix

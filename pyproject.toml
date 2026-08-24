@@ -1,0 +1,48 @@
+# This repository is a test suite, not a distributable package, so there is no
+# [project] table - only dependency groups (PEP 735) and tool config.
+#
+# Groups mirror the suites. `shared` is the infrastructure every suite needs
+# (the root conftest's httpx client and Allure hook, plus xdist); each suite
+# group includes it and adds only what it alone uses. Install one suite with:
+#
+#     pip install --group api        # or contract / e2e   (needs pip >= 25.1)
+
+[dependency-groups]
+shared = [
+    "pytest>=8.2",
+    "httpx>=0.27",
+    "allure-pytest>=2.13",
+    "pytest-xdist>=3.6",
+]
+api = [
+    {include-group = "shared"},
+    "pydantic>=2.7",      # independent test-side response models
+    "allpairspy>=2.5",    # pairwise generator for TC-LIST-27
+]
+contract = [
+    {include-group = "shared"},
+    "schemathesis<4",     # v4 reworks the pytest integration this suite uses
+]
+e2e = [
+    {include-group = "shared"},
+    "pytest-playwright>=0.5",
+    "axe-playwright-python>=0.1",   # accessibility audit
+]
+
+[tool.pytest.ini_options]
+# Peer suites: api/, contract/, e2e/. A bare `pytest` runs the API suite;
+# the other two are opt-in by path (they need schemathesis / browsers).
+# pythonpath puts the repo root (dataset, fixtures), the api suite (schemas)
+# and the e2e suite (pages) on sys.path so imports resolve from any suite.
+testpaths = ["api/tests"]
+pythonpath = [".", "api", "e2e"]
+addopts = "-ra --strict-markers -m 'not restricted'"
+markers = [
+    "p0: critical smoke - if broken, stop the release",
+    "p1: high priority",
+    "p2: medium priority",
+    "p3: low priority / non-functional",
+    "seed_disabled: stage without SEED_TOKEN",
+    "seed_enabled: stage with SEED_TOKEN",
+    "restricted: destructive/external-network tests - explicit execution only, on an isolated stage",
+]

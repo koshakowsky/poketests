@@ -1,13 +1,13 @@
 """E2E fixtures: web base URL, Page Objects, and programmatic login.
 
 The `page` fixture comes from pytest-playwright (browser matrix via `--browser`).
-The root poketests/conftest.py still applies here — its canary (SUT healthy +
+The root poketests/conftest.py still applies here - its canary (SUT healthy +
 Gen I dataset) is a valid precondition for the UI too, and its Allure-metadata
 hook gives E2E tests the same severity/feature labels.
 
 Premium journeys don't re-walk the login/checkout UI every time: a user is
 created (and, for premium, upgraded) via the API, then its JWT is injected into
-the SPA's localStorage before navigation — see `browser_login`. Tokens come from
+the SPA's localStorage before navigation - see `browser_login`. Tokens come from
 the shared `fixtures.users` plugin.
 """
 
@@ -66,13 +66,13 @@ def free_browser(page, make_user):
     return page
 
 
-# Public page — no auth.
+# Public page - no auth.
 @pytest.fixture
 def search_page(page, base_url) -> SearchPage:
     return SearchPage(page, base_url)
 
 
-# Premium pages — authenticated read-only session.
+# Premium pages - authenticated read-only session.
 @pytest.fixture
 def compare_page(premium_browser, base_url) -> ComparePage:
     return ComparePage(premium_browser, base_url)
@@ -88,7 +88,7 @@ def similar_page(premium_browser, base_url) -> SimilarPage:
     return SimilarPage(premium_browser, base_url)
 
 
-# Auth / billing pages — plain page; tests inject a token via browser_login,
+# Auth / billing pages - plain page; tests inject a token via browser_login,
 # free_browser or premium_browser (all share the same `page`) when needed.
 @pytest.fixture
 def login_page(page, base_url) -> LoginPage:

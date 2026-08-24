@@ -1,4 +1,4 @@
-# PokéAnalytics — Test Suite (API + E2E)
+# PokéAnalytics - Test Suite (API + E2E)
 
 [![API tests](https://github.com/koshakowsky/poketests/actions/workflows/api-tests.yml/badge.svg)](https://github.com/koshakowsky/poketests/actions/workflows/api-tests.yml)
 [![Allure report](https://img.shields.io/badge/Allure-report-8A2BE2)](https://koshakowsky.github.io/poketests/allure/)
@@ -12,15 +12,17 @@ test. Two peer suites over one SUT: an **API** suite (pytest + httpx) and an
 in [test-cases/](test-cases/), where every case is annotated with the
 design technique it applies, a priority and an expected result.
 
-**At a glance:** 140+ designed cases with technique traceability (EP / BVA /
-pairwise / decision tables / error guessing / state) · **auth & authorization**
-coverage — JWT login, a tier-based RBAC access matrix (401-vs-403) and a
-realistic fake-checkout state machine (card validation, declines, idempotency) ·
-API automation with exact, dataset-profile-driven oracles · E2E journeys over
-Page Objects on `data-testid` hooks · **contract fuzzing** of every operation
-(schemathesis vs the live OpenAPI schema) · CI gate + browser matrix · a live
-health dashboard and Allure report · **4 defects** found by test design and
-driven through the full report→fix→guard cycle.
+**At a glance:** 175+ designed cases with **100% catalog→automation
+traceability** (every `TC-*` id is executed by a named test) · techniques
+applied explicitly - EP / BVA / pairwise / decision tables / error guessing /
+state · **auth & authorization** - JWT login, a tier-based RBAC matrix
+(401-vs-403) and a fake-checkout state machine (card validation, declines,
+idempotency, **concurrency**) · exact, dataset-profile-driven oracles · E2E
+journeys over Page Objects on `data-testid` hooks · **contract fuzzing** of
+every operation (schemathesis vs the live OpenAPI schema) · **accessibility
+gate** (axe-core, WCAG) · CI gate + browser matrix · live health dashboard and
+Allure report · **8 defects** found and driven through the full
+report→fix→guard cycle.
 
 > **Why a separate repository?** In a product setting a suite that targets a
 > single service would live in that service's repo (atomic changes, no
@@ -38,23 +40,22 @@ root.
 
 ```
 poketests/
+├── pyproject.toml       dependency groups (PEP 735) + pytest config
 ├── conftest.py          shared: api client, canary (SUT up + dataset), Allure hook
-├── dataset.py           dataset profile — data assumptions in one place
-├── pytest.ini           shared markers + config
-├── fixtures/            shared fixtures registered via pytest_plugins (users/tiers)
+├── dataset.py           dataset profile - data assumptions in one place
+├── fixtures/            shared across suites, registered via pytest_plugins
+│   ├── users.py         identity: User, make_user, *_token, premium_api
+│   └── billing.py       card/checkout builders (plain helpers, not fixtures)
 ├── test-cases/          design catalog (api/ + e2e/, mirrors the suites)
 ├── bugs/  tools/         bug reports · pairwise + dashboard generators
 ├── api/                 API SUITE  →  pytest api
-│   ├── requirements.txt
-│   ├── conftest.py      API-specific: seed-mode probe & gate
+│   ├── conftest.py      API-only: seed-mode probe & gate, jwt_secret
 │   ├── schemas.py       independent response models (shape validation)
 │   └── tests/
 ├── contract/            CONTRACT SUITE  →  pytest contract
-│   ├── requirements.txt
 │   ├── conftest.py      live-schema loader + premium auth
 │   └── tests/           schemathesis fuzzes every operation
 └── e2e/                 E2E SUITE  →  pytest e2e
-    ├── requirements.txt
     ├── conftest.py      base_url + Page Object fixtures
     ├── pages/           Page Object Model
     └── tests/
@@ -62,32 +63,63 @@ poketests/
 
 ---
 
+### Where a fixture lives
+
+One rule, so there is never a second place to look: **anything shared between
+suites is a plugin under `fixtures/`; a suite's `conftest.py` holds only what is
+unique to that suite.** So identity (users, tokens, authenticated clients) is in
+`fixtures/users.py`, and `api/conftest.py` keeps just the seed-mode probe and the
+secrets the API suite alone needs.
+
+Test data is built, not duplicated: `fixtures/billing.py` owns the card and
+checkout bodies, `dataset.py` owns the data assumptions. A test picks a card
+number from `dataset.CARDS` and nothing else needs to know the body shape.
+
+Dependencies follow the same shape. `pyproject.toml` declares one **dependency
+group per suite** ([PEP 735](https://peps.python.org/pep-0735/)), each composed
+from a `shared` group via `include-group`:
+
+```bash
+pip install --group api        # 22 packages
+pip install --group contract   # 58 - schemathesis pulls a large tree
+pip install --group e2e        # 28 - browsers
+```
+
+Keeping them apart is not tidiness, it is install cost: a single merged file
+would make every job install 71 packages, and the API job runs twice on each
+push. Groups also removed a wrong dependency edge - `contract` used to inherit
+`api/requirements.txt` while using nothing from the API suite. No packaging
+metadata is involved: this repo is a test suite, not a distributable, so
+`pyproject.toml` carries only groups and tool config. Needs **pip >= 25.1**.
+
+---
+
 ## Place in the test pyramid
 
 ```
         /\
-       /E2E\        UI journeys, Playwright — e2e/
+       /E2E\        UI journeys, Playwright - e2e/
       /------\
-     /  API   \     <-- integration tests at the HTTP API level — api/
+     /  API   \     <-- integration tests at the HTTP API level - api/
     /----------\        (router + service + DB), fast and stable
    /   Unit     \    pure functions + pytest smoke in the SUT repo
   /--------------\
 ```
 
 - **Unit (bottom).** Pure logic without HTTP/DB: cosine/magnitude similarity,
-  type-advantage calculation, CSV parsing of `types`. Cheap — have many.
+  type-advantage calculation, CSV parsing of `types`. Cheap - have many.
 - **Contract (between unit and API).** The SUT publishes a live OpenAPI schema
-  (`/api/openapi.json`) — the source of truth for the contract. The `contract/`
+  (`/api/openapi.json`) - the source of truth for the contract. The `contract/`
   suite (schemathesis) fuzzes **every** operation with schema-derived data and
   validates each response against that schema (`not_a_server_error` +
   response/content-type conformance). It found and now guards two robustness
-  defects — [BUG-004](bugs/BUG-004-integer-overflow-500.md) (out-of-range int →
+  defects - [BUG-004](bugs/BUG-004-integer-overflow-500.md) (out-of-range int →
   500) and a naive-datetime schema violation. Schema availability is pinned by
   TC-ENV-03.
 - **API / integration (middle, our focus).** HTTP requests against a running
   service: status codes, response shape, business rules and validation. Most
   cases in this catalog live here.
-- **E2E (top).** UI scenarios (Playwright for Python). Kept minimal —
+- **E2E (top).** UI scenarios (Playwright for Python). Kept minimal -
   end-to-end user journeys only, designed in [test-cases/e2e/](test-cases/e2e/)
   and automated in [e2e/](e2e/).
 
@@ -133,13 +165,38 @@ running service is pushed down to unit.
 - **Case format:** ID · Title · Priority · Technique · Preconditions (if any) ·
   Request · Expected result (status + body checks).
 
+### Traceability - every designed case is executed
+
+A catalog drifts away from its automation quietly: a case is designed and never
+implemented, or an id is renamed on one side only. Rather than assert coverage,
+the repo makes it re-runnable:
+
+```bash
+python tools/check_traceability.py --strict   # exits 1 on any gap
+```
+
+It cross-references every `TC-*` / `E2E-*` id in [test-cases/](test-cases/)
+against the ids named in test docstrings, and reports both directions - cases
+with no test, and tests citing a case that does not exist.
+
+```
+API: 132/132 traced (100%)
+E2E:   44/44 traced (100%)
+```
+
+The same ids become searchable **Allure tags** (see the `conftest.py` hook), so
+a case id links the catalog, the test and the report. Two notes on the edges:
+`TC-ENV-*` is implemented as the session canary fixture - a gate, not a case, so
+it has no Allure tag by design; and ids are always written in full, never as a
+`TC-LIST-03/04/05` shorthand, which would silently register only the first.
+
 ### Shared expectations (apply to all cases, not repeated per case)
 
 - Successful responses have `Content-Type: application/json`.
 - Successful bodies conform to the endpoint's Pydantic schema (types and
   required fields). Cases list only meaningful checks beyond the schema.
   Enforced once per response type by the automation's *shape tests* via
-  **independent test-side models** (`api/schemas.py`, `extra="forbid"`) —
+  **independent test-side models** (`api/schemas.py`, `extra="forbid"`) -
   deliberately not imported from the SUT: validating a response with the
   same models that serialized it would be tautological.
 - FastAPI/Pydantic validation errors → **422** with `{"detail": [...]}`.
@@ -164,11 +221,11 @@ running service is pushed down to unit.
 | 200 | successful GET/POST with a result |
 | 201 | resource created (register a user) |
 | 400 | business rule violated (e.g. compare id count outside 2..6) |
-| 401 | **not authenticated** — missing/invalid/expired token; seed: wrong token |
+| 401 | **not authenticated** - missing/invalid/expired token; seed: wrong token |
 | 402 | payment declined at checkout (`card_declined` / `insufficient_funds`) |
-| 403 | **forbidden** — authenticated but tier too low; seed: feature disabled |
+| 403 | **forbidden** - authenticated but tier too low; seed: feature disabled |
 | 404 | entity not found (pokemon/type by id); unknown checkout plan |
-| 409 | conflict — duplicate email, already subscribed, no active subscription |
+| 409 | conflict - duplicate email, already subscribed, no active subscription |
 | 422 | parameter/body validation error (type/range/enum, card format) |
 
 **401 vs 403** is a deliberate, tested distinction: *no/invalid credentials* →
@@ -181,7 +238,7 @@ running service is pushed down to unit.
 
 - **SUT:** a running API (`http://localhost/api` via docker compose, or
   `http://localhost:8000/api` directly).
-- **Data precondition:** the DB is seeded with the default set —
+- **Data precondition:** the DB is seeded with the default set -
   **151 Pokémon (Gen I)**. Cases rely on stable fixtures:
 
   | id | name | trait |
@@ -197,7 +254,7 @@ running service is pushed down to unit.
   `generation=1` → 151 results, while `generation=2..9` → a valid **empty**
   result (`total=0`). This is used as the "valid but empty" class.
 - Cases deliberately avoid pinning type counts/averages that would make them
-  brittle — they verify structure, invariants and known ids/names instead.
+  brittle - they verify structure, invariants and known ids/names instead.
 - **Dataset profile.** All data assumptions used by the automation are
   centralized in [dataset.py](dataset.py) (active profile `gen1`, matching
   the SUT fixture `api/fixtures/gen1.json`). Tests take exact oracles from
@@ -218,7 +275,7 @@ running service is pushed down to unit.
   (`ADMIN_EMAIL` / `ADMIN_PASSWORD`, defaults `admin@example.com` /
   `admin-password-123`) so admin-tier cases have a known account.
 - **Users are created per run:** tests register fresh, unique users (e.g.
-  `user+{uuid}@test.io`) rather than relying on fixed accounts — the suite owns
+  `user+{uuid}@test.io`) rather than relying on fixed accounts - the suite owns
   no reset between tests, and unique emails keep the `409`-duplicate path and
   parallel workers from colliding. A **premium** user is obtained by registering
   then running a successful checkout.
@@ -251,41 +308,55 @@ running service is pushed down to unit.
 | [test-cases/11-billing-checkout.md](test-cases/api/11-billing-checkout.md) | Billing & checkout: plans, card validation, declines, idempotency, cancel |
 | [test-cases/12-rbac.md](test-cases/api/12-rbac.md) | RBAC: tier access matrix, 401-vs-403 |
 | [test-cases/13-security.md](test-cases/api/13-security.md) | Security: mass-assignment, JWT attacks, injection (+ consolidated) |
-| [test-cases/e2e/](test-cases/e2e/) | **E2E (UI)** — nav, search, compare, analytics, similar, **auth, checkout** journeys |
-| [tools/generate_pairwise.py](tools/generate_pairwise.py) | Pairwise set generator (allpairspy) for TC-LIST-27 |
+| [test-cases/e2e/](test-cases/e2e/) | **E2E (UI)** - nav, search, compare, analytics, similar, **auth, checkout** journeys |
+| [test-cases/e2e/08-accessibility.md](test-cases/e2e/08-accessibility.md) | **a11y** - axe-core audit gate + keyboard journey |
+| [tools/generate_pairwise.py](tools/generate_pairwise.py) | Pairwise set generator (allpairspy) - **imported by** the TC-LIST-27 test, so the documented set and the executed set cannot drift |
+| [tools/check_traceability.py](tools/check_traceability.py) | Catalog ↔ automation traceability check (`--strict` for CI) |
 | [api/schemas.py](api/schemas.py) | Independent test-side response models (shape validation) |
-| [dataset.py](dataset.py) | Dataset profile — centralized data assumptions for exact oracles |
+| [dataset.py](dataset.py) | Dataset profile - centralized data assumptions for exact oracles |
 | [bugs/](bugs/) | Bug reports for defects found by this catalog |
 
 The **API** automation lives in [api/](api/) (`pytest api`) and the **E2E**
-automation in [e2e/](e2e/) (`pytest e2e`) — see *Running* below.
+automation in [e2e/](e2e/) (`pytest e2e`) - see *Running* below.
 
 ---
 
 ## Running the suites
 
-Both need the SUT up (`docker compose up` in pokeanalytics) so the API — and,
-for E2E, the frontend — are reachable. `pytest.ini` sets `testpaths = api/tests`,
+Both need the SUT up (`docker compose up` in pokeanalytics) so the API - and,
+for E2E, the frontend - are reachable. `pyproject.toml` sets `testpaths = api/tests`,
 so a bare `pytest` runs the API suite; the `contract` and `e2e` suites are
 opt-in via their paths.
 
 ### API suite
 
 ```bash
-pip install -r api/requirements.txt
+pip install --group api
 pytest api                    # full API suite (bare `pytest` also works)
 pytest api -m p0              # smoke only
-pytest api -m restricted      # destructive seed test — isolated stack only
+pytest api -m restricted      # destructive seed test - isolated stack only
 POKETESTS_BASE_URL=http://localhost:8000/api pytest api   # non-default SUT
 ```
 
 `restricted` tests are excluded by default (`-m "not restricted"` in
-`pytest.ini`); an explicit `-m` on the command line overrides the filter.
+`pyproject.toml`); an explicit `-m` on the command line overrides the filter.
+
+**Parallel execution** is supported and used in CI:
+
+```bash
+pytest api -n auto            # ~6x faster (22s -> 4s locally)
+```
+
+This is not a free speed-up, it is a property of the fixture design: every user
+is created with a unique email and nothing is cleaned up between tests, so
+workers sharing one SUT cannot collide. Running green under `-n auto` is what
+proves that isolation claim rather than asserting it. The `restricted` seed job
+stays serial by nature (it wipes and reseeds the database).
 
 ### Contract suite
 
 ```bash
-pip install -r contract/requirements.txt
+pip install --group contract
 pytest contract               # schemathesis fuzzes every operation
 POKETESTS_BASE_URL=http://localhost/api pytest contract
 ```
@@ -293,24 +364,32 @@ POKETESTS_BASE_URL=http://localhost/api pytest contract
 Loads the live schema from `/api/openapi.json`, fuzzes each operation with
 schema-derived data (authenticated as premium so gated routes are exercised),
 and runs `not_a_server_error` + response/content-type conformance.
-`status_code_conformance` is intentionally off — FastAPI only auto-documents
+`status_code_conformance` is intentionally off - FastAPI only auto-documents
 200/201 and 422, so it would flag every legitimate business error (401/403/404/
 409) as undocumented.
 
 ### E2E suite
 
 ```bash
-pip install -r e2e/requirements.txt
+pip install --group e2e
 playwright install                     # download browser binaries
 pytest e2e                             # chromium (default)
 pytest e2e --browser firefox --browser webkit   # cross-browser matrix
+pytest e2e -n 4                        # parallel (44s -> 12s)
 pytest e2e --headed --slowmo 300       # watch it run
 ```
+
+Both suites run in parallel, but the worker counts differ on purpose. The API
+suite uses `-n auto`; E2E is capped at `-n 4`, because a browser worker is far
+more expensive than an httpx one and the measured curve flattens past four
+(43s serial, 12s at 4, 9s at 8, 10s at 12 - contention starts winning). A fixed
+cap also keeps `auto` from launching a browser per core on a bigger runner.
+Verified green on chromium, firefox and webkit.
 
 | Env | Default | Purpose |
 |-----|---------|---------|
 | `POKETESTS_WEB_URL` | `http://localhost` | frontend origin the browser navigates |
-| `POKETESTS_BASE_URL` | `http://localhost/api` | API base — used by the shared canary |
+| `POKETESTS_BASE_URL` | `http://localhost/api` | API base - used by the shared canary |
 
 E2E uses Page Objects over the SUT's `data-testid` hooks and web-first
 Playwright assertions (no sleeps); ag-grid rows / recharts SVGs are selected
@@ -318,15 +397,29 @@ Playwright assertions (no sleeps); ag-grid rows / recharts SVGs are selected
 The shared root canary applies here too, so "SUT up + Gen I dataset" is a
 precondition for the UI as well.
 
+Premium journeys don't re-walk the payment UI every time: a user is registered
+and upgraded **through the API**, then its JWT is injected into `localStorage`
+before navigation (`browser_login` / `premium_browser` fixtures). Setup goes
+through the fastest layer that can do it; the browser is spent on the behaviour
+under test.
+
+**Accessibility** ([test-cases/e2e/08-accessibility.md](test-cases/e2e/08-accessibility.md))
+runs axe-core over the primary paths. The gate is asymmetric on purpose:
+`critical` always fails, `serious` fails only for rules outside a documented
+allowlist that points at [BUG-007](bugs/BUG-007-accessibility-violations.md).
+Blocking on 43 pre-existing contrast findings would just get the check
+disabled - gate the regressions now, burn the backlog down separately. Machine
+audits cannot prove operability, so one keyboard-only journey backs them up.
+
 ### CI matrix
 
 Seed-endpoint behavior depends on server configuration (`SEED_TOKEN`), so
 [.github/workflows/api-tests.yml](.github/workflows/api-tests.yml) treats the
-configuration as an explicit axis — three jobs, three stack configs.
+configuration as an explicit axis - three jobs, three stack configs.
 
 Seeding in PR jobs is **hermetic**: the SUT ships a JSON fixture
 (`api/fixtures/gen1.json`, exported from a PokeAPI-seeded DB) and seeds from
-it synchronously at startup — no external network, "healthy" implies
+it synchronously at startup - no external network, "healthy" implies
 "dataset ready". That makes the full suite cheap enough to run in **both**
 PR configs; only the nightly `seed-run` job exercises the live PokeAPI
 integration.
@@ -347,13 +440,13 @@ repo. A companion workflow lives in the SUT repo
 (`pokeanalytics/.github/workflows/pr-gate.yml`): on every PR into
 `pokeanalytics` main it checks out this suite at `main` and runs it against
 the PR's SUT code. Since it runs in the SUT repo, its status attaches to that
-PR automatically and can be made a required check — so a SUT change cannot
+PR automatically and can be made a required check - so a SUT change cannot
 merge if it breaks the contract this catalog encodes.
 
 ### E2E CI (browser matrix)
 
 [.github/workflows/ui-tests.yml](.github/workflows/ui-tests.yml) runs the E2E
-suite against a fresh docker-compose stack across a browser matrix — **full
+suite against a fresh docker-compose stack across a browser matrix - **full
 suite on chromium, P0 smoke on firefox and webkit** (cross-browser on the
 critical paths without paying for the whole suite ×3).
 
@@ -361,12 +454,12 @@ Two techniques worth noting:
 
 - **Path filter without breaking the required check.** On a PR the expensive
   browser matrix runs only when E2E-relevant paths changed (`e2e/`,
-  `test-cases/e2e/`, shared root files) — detected by a native `git diff`
+  `test-cases/e2e/`, shared root files) - detected by a native `git diff`
   step, no third-party action. But the workflow itself always runs, so a
   final **`gate`** job always reports. Make `gate` the required check: it
   passes when the matrix succeeded *or* was legitimately skipped, and fails
   when any browser leg failed. A top-level `on.paths` filter would instead
-  leave a required check stuck "pending" on unrelated PRs — the aggregator
+  leave a required check stuck "pending" on unrelated PRs - the aggregator
   pattern avoids that.
 - E2E Allure results are uploaded per browser as artifacts; publishing them
   into the Pages report is a future step (the API suite owns the Pages
@@ -376,7 +469,7 @@ Two techniques worth noting:
 
 On every push to `main` the `publish-report` job builds and deploys a combined
 GitHub Pages site: a **project-health dashboard** at the root
-(**<https://koshakowsky.github.io/poketests/>** — pass rate, priority
+(**<https://koshakowsky.github.io/poketests/>** - pass rate, priority
 breakdown, pyramid, endpoint coverage and bug lifecycle, generated from the
 run's Allure results by [tools/build_dashboard.py](tools/build_dashboard.py)),
 and the **full Allure report** with run-over-run trends under
@@ -389,7 +482,7 @@ allure serve allure-results   # requires Allure CLI (brew install allure)
 
 Allure metadata is derived automatically (see `conftest.py`): priority markers
 `p0..p3` map to Allure severity, the feature label comes from the test module,
-and `TC-*` ids from docstrings become searchable tags — no per-test decorators
+and `TC-*` ids from docstrings become searchable tags - no per-test decorators
 to maintain.
 
 ---
@@ -397,13 +490,22 @@ to maintain.
 ## Defects found by test design (full lifecycle)
 
 All were found by test design (or fuzzing), documented as bug reports, encoded
-as a test against the specification, then **fixed in the SUT** — at which point
+as a test against the specification, then **fixed in the SUT** - at which point
 the test became a permanent regression guard. This report → fix → guard cycle is
 the point.
 
 | Case | Bug report | Defect | Status |
 |------|-----------|--------|--------|
-| TC-LIST-28 | [BUG-001](bugs/BUG-001-like-wildcard-injection.md) | LIKE-wildcard injection (`name=%` matched everything) | ✅ Fixed — regression guard |
-| TC-LIST-29 | [BUG-002](bugs/BUG-002-unstable-pagination-order.md) | Unstable pagination (no tiebreaker on a non-unique sort key) | ✅ Fixed — regression guard |
-| TC-BILL-19 | [BUG-003](bugs/BUG-003-cross-user-idempotency-collision.md) | Cross-user idempotency key collision → 500 (global PK) | ✅ Fixed — regression guard |
-| contract | [BUG-004](bugs/BUG-004-integer-overflow-500.md) | Out-of-range integer param → 500 (SQLite overflow) | ✅ Fixed — schemathesis guard |
+| TC-LIST-28 | [BUG-001](bugs/BUG-001-like-wildcard-injection.md) | LIKE-wildcard injection (`name=%` matched everything) | ✅ Fixed - regression guard |
+| TC-LIST-29 | [BUG-002](bugs/BUG-002-unstable-pagination-order.md) | Unstable pagination (no tiebreaker on a non-unique sort key) | ✅ Fixed - regression guard |
+| TC-BILL-19 | [BUG-003](bugs/BUG-003-cross-user-idempotency-collision.md) | Cross-user idempotency key collision → 500 (global PK) | ✅ Fixed - regression guard |
+| contract | [BUG-004](bugs/BUG-004-integer-overflow-500.md) | Out-of-range integer param → 500 (SQLite overflow) | ✅ Fixed - schemathesis guard |
+| TC-ANL-03 | [BUG-005](bugs/BUG-005-group-by-enum-not-enforced.md) | `group_by` enum documented but not enforced → silently grouped by the wrong dimension | ✅ Fixed - regression guard |
+| TC-DET-03 | [BUG-006](bugs/BUG-006-type-slot-order-ignored.md) | Stored type `slot` ignored → dual types returned reversed | ✅ Fixed - regression guard |
+| E2E-A11Y-01/04 | [BUG-007](bugs/BUG-007-accessibility-violations.md) | Unlabelled filter controls (WCAG 4.1.2) - critical for screen readers | ⚠️ Critical fixed; contrast baselined |
+| TC-BILL-20 | [BUG-008](bugs/BUG-008-concurrent-checkout-race.md) | Concurrent double-submit → 500 (TOCTOU on subscription insert) | ✅ Fixed - regression guard |
+
+Worth noting **how** each was found - the mix is the point, not the count:
+test design against a written spec (001, 002, 005, 006), state/sequencing
+design (003), generative contract fuzzing (004), an accessibility audit (007),
+and a concurrency case that a sequential test structurally cannot reach (008).

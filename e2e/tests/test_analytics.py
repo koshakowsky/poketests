@@ -1,4 +1,4 @@
-"""E2E · Analytics page — test-cases/e2e/04-analytics.md"""
+"""E2E · Analytics page - test-cases/e2e/04-analytics.md"""
 
 import pytest
 from playwright.sync_api import expect

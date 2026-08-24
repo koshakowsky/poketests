@@ -1,11 +1,11 @@
-# BUG-002 — Pagination order is undefined for non-unique sort keys (no tiebreaker)
+# BUG-002 - Pagination order is undefined for non-unique sort keys (no tiebreaker)
 
 | Field | Value |
 |-------|-------|
-| **Status** | **Fixed** — `ORDER BY <key>, id` tiebreaker added in `pokemon_service.py` |
+| **Status** | **Fixed** - `ORDER BY <key>, id` tiebreaker added in `pokemon_service.py` |
 | **Severity** | Major on PostgreSQL (user-visible duplicates/losses while paging), latent on SQLite |
-| **Priority** | P1 — one-line fix; defect is environment-dependent and intermittent by nature |
-| **Component** | API — `GET /api/pokemon/` (list/search), sorting + pagination |
+| **Priority** | P1 - one-line fix; defect is environment-dependent and intermittent by nature |
+| **Component** | API - `GET /api/pokemon/` (list/search), sorting + pagination |
 | **Environment** | pokeanalytics `dev`; masked on SQLite, expected to manifest on PostgreSQL (`DATABASE_URL` explicitly supports it) |
 | **Found by** | Test design (state/sequencing analysis), case [TC-LIST-29](../test-cases/api/03-pokemon-list-search.md#tc-list-29--pagination-with-a-non-unique-sort-key--p2--steg---bug-candidate) |
 | **Automated as** | `tests/test_03_pokemon_list.py::test_pagination_stable_with_non_unique_sort_key` (regression guard) |
@@ -25,11 +25,11 @@ default listing is exactly the affected path.
 
 Deterministically reproducible only where the DB reorders ties (PostgreSQL,
 parallel scans); on SQLite the order is stable in practice, which is why the
-defect is *latent*, not absent — the API contract simply does not promise
+defect is *latent*, not absent - the API contract simply does not promise
 stable pagination:
 
 ```bash
-# Collect three pages and count unique ids — must be 150:
+# Collect three pages and count unique ids - must be 150:
 for off in 0 50 100; do
   curl -s "http://localhost/api/pokemon/?sort_by=stat_total&sort_order=desc&limit=50&offset=$off" \
     | jq -r '.items[].id'

@@ -1,4 +1,4 @@
-"""Page Object base — header nav is present on every page.
+"""Page Object base - header nav is present on every page.
 
 POM keeps selectors out of tests: tests speak in intent (`add`, `filter_by_name`),
 locators live here. Selection order follows the catalog: data-testid first, then
@@ -17,7 +17,7 @@ class BasePage:
         self.base_url = base_url.rstrip("/")
 
     def open(self):
-        # Explicit absolute navigation — POM does not rely on context base_url.
+        # Explicit absolute navigation - POM does not rely on context base_url.
         self.page.goto(f"{self.base_url}{self.path}")
         return self
 

@@ -1,10 +1,10 @@
-"""Security — test-cases/api/13-security.md
+"""Security - test-cases/api/13-security.md
 
 Application-layer security checks. Transport (TLS), rate-limiting and proxy
-headers are out of scope here — see the file's "Scope & boundary".
+headers are out of scope here - see the file's "Scope & boundary".
 
 Safety: some cases send destructive payloads (e.g. "DROP TABLE users" in
-TC-SEC-04). Run only against a disposable stand — never a shared/persistent one.
+TC-SEC-04). Run only against a disposable stand - never a shared/persistent one.
 """
 
 import base64
@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from conftest import DEFAULT_PASSWORD, unique_email
+from fixtures.users import DEFAULT_PASSWORD, unique_email
 
 PREMIUM_ENDPOINT = "analytics/type-distribution"
 
@@ -45,7 +45,7 @@ def forge_hs256(secret: str, payload: dict) -> str:
     return f"{head}.{body}.{sig}"
 
 
-# ── TC-SEC-01 — mass assignment / privilege escalation ──
+# ── TC-SEC-01 - mass assignment / privilege escalation ──
 
 @pytest.mark.p0
 @pytest.mark.parametrize(
@@ -57,7 +57,7 @@ def forge_hs256(secret: str, payload: dict) -> str:
     ],
 )
 def test_no_privilege_escalation_via_register(api, extra):
-    """TC-SEC-01: extra fields in the register body are ignored — tier stays free."""
+    """TC-SEC-01: extra fields in the register body are ignored - tier stays free."""
     body = {"email": unique_email(), "password": DEFAULT_PASSWORD, **extra}
     r = api.post("auth/register", json=body)
     assert r.status_code == 201, r.text
@@ -66,7 +66,7 @@ def test_no_privilege_escalation_via_register(api, extra):
 
 @pytest.mark.p0
 def test_injected_id_is_ignored(api):
-    """TC-SEC-01: a client-supplied id is not honored — id is server-assigned."""
+    """TC-SEC-01: a client-supplied id is not honored - id is server-assigned."""
     r = api.post("auth/register", json={"email": unique_email(), "password": DEFAULT_PASSWORD, "id": 1})
     assert r.status_code == 201, r.text
     # id 1 is the seeded admin; a fresh user must never collide with it.
@@ -76,7 +76,7 @@ def test_injected_id_is_ignored(api):
 @pytest.mark.p0
 def test_escalation_has_no_effect_end_to_end(api):
     """TC-SEC-01: even after trying to self-assign admin, the account is denied
-    premium access (403) — the injected tier had no effect."""
+    premium access (403) - the injected tier had no effect."""
     email = unique_email()
     reg = api.post("auth/register", json={"email": email, "password": DEFAULT_PASSWORD, "tier": "admin"})
     assert reg.status_code == 201, reg.text
@@ -85,7 +85,7 @@ def test_escalation_has_no_effect_end_to_end(api):
     assert r.status_code == 403
 
 
-# ── TC-SEC-02 / 03 — JWT attacks ──
+# ── TC-SEC-02 / 03 - JWT attacks ──
 
 @pytest.mark.p1
 def test_alg_none_token_rejected(api):
@@ -105,17 +105,17 @@ def test_expired_token_rejected(api, jwt_secret):
 
 
 @pytest.mark.p1
-def test_valid_signed_token_is_accepted(api, jwt_secret, new_user):
+def test_valid_signed_token_is_accepted(api, jwt_secret, free_user):
     """TC-SEC-03 (control): the same forging path with a FUTURE exp is accepted,
     proving the expired-token rejection is about exp, not a broken signature."""
     future = datetime.now(timezone.utc) + timedelta(hours=1)
-    token = forge_hs256(jwt_secret, {"sub": str(new_user.id), "exp": int(future.timestamp())})
+    token = forge_hs256(jwt_secret, {"sub": str(free_user.id), "exp": int(future.timestamp())})
     r = api.get("auth/me", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
-    assert r.json()["email"] == new_user.email
+    assert r.json()["email"] == free_user.email
 
 
-# ── TC-SEC-04 / 05 — injection ──
+# ── TC-SEC-04 / 05 - injection ──
 
 @pytest.mark.p1
 @pytest.mark.parametrize(
@@ -131,7 +131,7 @@ def test_sql_injection_in_login_is_neutralized(api, email):
     never 200 (auth bypass) and never 500 (query error)."""
     r = api.post("auth/login", json={"email": email, "password": "whatever1"})
     assert r.status_code == 401
-    # And the users table is intact — a normal register still works afterwards.
+    # And the users table is intact - a normal register still works afterwards.
     assert api.post("auth/register", json={"email": unique_email(), "password": DEFAULT_PASSWORD}).status_code == 201
 
 
@@ -147,17 +147,17 @@ def test_injection_payload_stored_inertly(api):
     assert me.json()["email"] == payload   # stored/returned literally, not executed
 
 
-# ── TC-SEC-06 — no internal leakage ──
+# ── TC-SEC-06 - no internal leakage ──
 
 @pytest.mark.p2
-def test_errors_do_not_leak_internals(api, new_user):
-    """TC-SEC-06: error bodies expose only intended detail — no stack traces,
+def test_errors_do_not_leak_internals(api, free_user):
+    """TC-SEC-06: error bodies expose only intended detail - no stack traces,
     file paths, SQL fragments or password hashes."""
     leak_markers = ("Traceback", "hashed_password", "site-packages", "sqlalchemy",
                     "/app/", ".py\", line")
     responses = [
         api.post("auth/register", json={"bad": "body"}),          # 422
-        api.post("auth/login", json={"email": new_user.email, "password": "wrong"}),  # 401
+        api.post("auth/login", json={"email": free_user.email, "password": "wrong"}),  # 401
         api.get("auth/me", headers={"Authorization": "Bearer garbage"}),  # 401
     ]
     for r in responses:

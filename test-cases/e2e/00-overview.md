@@ -1,4 +1,4 @@
-# E2E (UI) Test Catalog — approach
+# E2E (UI) Test Catalog - approach
 
 The top of the pyramid: end-to-end tests that drive the **frontend** in a real
 browser and assert what the user sees. Automated later with **Playwright for
@@ -14,7 +14,7 @@ E2E is **thin and expensive**, so it verifies the things only a browser can:
 - **interactions** work (typing, clicking, routing, pagination);
 - it holds up **across browsers**.
 
-E2E does **not** re-test business logic or input combinations — that is fully
+E2E does **not** re-test business logic or input combinations - that is fully
 covered at the API layer (filters, boundaries, pairwise, error codes). Driving
 all filter permutations through the UI would be slow and redundant. Rule: if a
 check does not need the browser, it belongs one layer down.
@@ -25,9 +25,9 @@ The built React SPA served by nginx (same `docker compose` stack). Pages
 (from the nav): **Select** `/`, **Analytics** `/analytics`, **Compare**
 `/compare`, **Similar** `/similar`; plus auth/billing routes reachable off-nav:
 **Login/Register** `/login`, **Checkout** `/checkout`, **Account** `/account`.
-The header's right side shows **auth controls** — a `Log in` link when signed
+The header's right side shows **auth controls** - a `Log in` link when signed
 out, or the user's email + tier badge + `Log out` when signed in. Data is the
-hermetic Gen I fixture (151 pokemon) — the same deterministic anchors as the
+hermetic Gen I fixture (151 pokemon) - the same deterministic anchors as the
 API catalog (bulbasaur #1, charmander #4, mewtwo #150).
 
 **Access model in the UI** (mirrors the API RBAC, [12-rbac.md](../api/12-rbac.md)):
@@ -38,15 +38,15 @@ therefore run under an **authenticated premium session**, established once by a
 fixture (register + checkout via the API, token injected into the browser) so
 the UI cases don't re-walk the payment flow every time.
 
-## Selector strategy — testability built into the SUT 🔎
+## Selector strategy - testability built into the SUT 🔎
 
-A testability gap was found during design — the frontend exposed no stable
-hooks — and **fixed in the SUT**: the components now carry `data-testid`
+A testability gap was found during design - the frontend exposed no stable
+hooks - and **fixed in the SUT**: the components now carry `data-testid`
 anchors on exactly the elements these cases target (a legitimate SDET
-contribution — *making the product observable to tests*, done before writing
+contribution - *making the product observable to tests*, done before writing
 the automation). Preference order for selectors:
 
-1. **`data-testid`** (primary) — stable, decoupled from copy and styling:
+1. **`data-testid`** (primary) - stable, decoupled from copy and styling:
    - nav: `nav`, `nav-link-{select|analytics|compare|similar}`;
    - Select: `filter-name`, `filter-type`, `filter-generation`,
      `filter-group`, `filter-min_*` (sliders), `results-total`,
@@ -67,9 +67,9 @@ the automation). Preference order for selectors:
      `error-number`/`error-expiry`/`error-cvc`; Account `account-page`,
      `account-tier`, `sub-details`, `sub-status`, `cancel-button`,
      `resubscribe-button`.
-2. **accessible text / role** — headings, button labels, nav text; the active
+2. **accessible text / role** - headings, button labels, nav text; the active
    tab exposes `aria-current="page"` (react-router `NavLink`).
-3. **library DOM** — only for elements rendered internally by the libraries:
+3. **library DOM** - only for elements rendered internally by the libraries:
    ag-grid rows/cells `.ag-row` / `.ag-cell` **scoped inside** the relevant
    `*-grid` testid, and recharts `svg.recharts-surface` **inside** the
    `chart-*` / `*-radar` testid. Scoping to a testid contains the brittleness.
@@ -84,14 +84,16 @@ Each case notes the `data-testid` it uses.
 - **Priorities:** P0 smoke/core journey · P1 important · P2 secondary · P3
   edge/non-functional. Same P0-P3 scale as the API suite.
 - **Kinds:** `smoke`, `journey` (multi-step user flow), `render` (visual
-  presence of a component), `negative`, `routing`, `responsive`, `a11y`.
+  presence of a component), `negative`, `routing`, `a11y`. Every kind listed
+  here is used by at least one case - a legend entry with no cases behind it is
+  a claim the suite does not back up.
 
-### Waits — web-first, never sleep
+### Waits - web-first, never sleep
 
 The search inputs **debounce ~350 ms**, and grids/charts fill after an async
 fetch. Automation uses Playwright **web-first assertions** (`expect(locator)`
-auto-retries) and waits on observable outcomes — a row count, a visible card,
-a chart `<svg>` — **never** a fixed `sleep`. Cases state the *outcome to wait
+auto-retries) and waits on observable outcomes - a row count, a visible card,
+a chart `<svg>` - **never** a fixed `sleep`. Cases state the *outcome to wait
 for*, not a duration.
 
 ### Browser matrix
@@ -110,3 +112,4 @@ chromium to keep the run fast. Marked per case as *(matrix)*.
 | [05-similar.md](05-similar.md) | Similar: pick target, similar table + radar *(premium)* |
 | [06-auth.md](06-auth.md) | Login / register / logout, route guard, session |
 | [07-checkout.md](07-checkout.md) | Upgrade wall → checkout → account, cancel |
+| [08-accessibility.md](08-accessibility.md) | axe-core audit gate + keyboard journey |

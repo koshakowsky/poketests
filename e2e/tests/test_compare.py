@@ -1,4 +1,4 @@
-"""E2E · Compare page — test-cases/e2e/03-compare.md"""
+"""E2E · Compare page - test-cases/e2e/03-compare.md"""
 
 import pytest
 from playwright.sync_api import expect
@@ -53,5 +53,5 @@ def test_selection_capped_at_six(compare_page):
     for name in ("bulbasaur", "charmander", "squirtle", "pikachu", "jigglypuff", "meowth"):
         compare_page.add(name)
     expect(compare_page.chips).to_have_count(6)
-    compare_page.add("eevee")  # 7th — ignored by the UI
+    compare_page.add("eevee")  # 7th - ignored by the UI
     expect(compare_page.chips).to_have_count(6)

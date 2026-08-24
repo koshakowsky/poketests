@@ -72,14 +72,21 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip   # --group needs pip >= 25.1
+
       - name: Install E2E dependencies
-        run: pip install -r e2e/requirements.txt
+        run: pip install --group e2e
 
       - name: Install Playwright browser
         run: playwright install --with-deps ${{ matrix.browser }}
 
+      # -n 4 rather than -n auto: a browser worker costs far more than an httpx
+      # one, and the measured curve flattens past 4 (43s serial -> 12s at 4 ->
+      # 9s at 8 -> 10s at 12, where contention starts winning). A fixed cap also
+      # stops `auto` from spawning a browser per core on a larger runner.
       - name: Run E2E (${{ matrix.browser }})
-        run: pytest e2e --browser ${{ matrix.browser }} ${{ matrix.mark }} --alluredir=allure-results
+        run: pytest e2e --browser ${{ matrix.browser }} ${{ matrix.mark }} -n 4 --alluredir=allure-results
         env:
           POKETESTS_WEB_URL: http://localhost
           POKETESTS_BASE_URL: http://localhost/api
