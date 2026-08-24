@@ -2,7 +2,7 @@
 
 Live metrics (test counts, pass rate, P0-P3 breakdown) are parsed from the
 `*-result.json` files the suite already produces via `pytest --alluredir`
-(status + our severity labels) — no extra plugin or artifact. Structural facts
+(status + our severity labels) - no extra plugin or artifact. Structural facts
 (pyramid, endpoint coverage, bug lifecycle, stack) are maintained as constants
 below; they change rarely and deliberately.
 
@@ -46,8 +46,8 @@ SUT_ENDPOINTS = [
 ]
 
 PYRAMID = [
-    ("E2E (Playwright)", "active", "UI journeys over Page Objects — auth, checkout, search, compare"),
-    ("API / integration", "active", "this suite — router + service + DB over HTTP"),
+    ("E2E (Playwright)", "active", "UI journeys over Page Objects - auth, checkout, search, compare"),
+    ("API / integration", "active", "this suite - router + service + DB over HTTP"),
     ("Contract", "active", "schemathesis fuzzes every operation from the live OpenAPI schema"),
     ("Unit", "partial", "pure functions + pytest smoke in the SUT repo"),
 ]
@@ -57,11 +57,16 @@ BUGS = [
     ("BUG-002", "Unstable pagination (no sort tiebreaker)", "fixed"),
     ("BUG-003", "Cross-user idempotency key collision (500)", "fixed"),
     ("BUG-004", "Out-of-range integer param returns 500", "fixed"),
+    ("BUG-005", "group_by enum documented but not enforced", "fixed"),
+    ("BUG-006", "Dual-type order ignores the stored slot", "fixed"),
+    ("BUG-007", "Unlabelled filter controls (WCAG 4.1.2)", "partial"),
+    ("BUG-008", "Concurrent checkout double-submit races to 500", "fixed"),
 ]
 
-TECHNIQUES = ["EP", "BVA", "Pairwise", "Decision tables", "Error guessing", "State/seq"]
-STACK = ["Python", "pytest", "httpx", "Playwright", "schemathesis", "pydantic",
-         "allpairspy", "Allure", "Docker", "GitHub Actions"]
+TECHNIQUES = ["EP", "BVA", "Pairwise", "Decision tables", "Error guessing",
+              "State/seq", "Concurrency", "a11y audit"]
+STACK = ["Python", "pytest", "httpx", "Playwright", "schemathesis", "axe-core",
+         "pydantic", "allpairspy", "Allure", "Docker", "GitHub Actions"]
 
 LINKS = [
     ("Full Allure report", "allure/"),
@@ -90,7 +95,7 @@ def parse_results(results_dir: str) -> dict:
                 prios[_SEVERITY_TO_PRIO.get(label["value"], "?")] += 1
     total = sum(buckets.values())
     passed = buckets["passed"]
-    # Pass rate over executed (non-skipped) tests — skips are not failures.
+    # Pass rate over executed (non-skipped) tests - skips are not failures.
     executed = total - buckets["skipped"]
     pass_rate = round(passed / executed * 100, 1) if executed else 0.0
     return {
@@ -152,7 +157,7 @@ def render(m: dict) -> str:
     return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PokéAnalytics — Test Health</title>
+<title>PokéAnalytics - Test Health</title>
 <style>
 :root {{
   --bg:#f7f8fa; --surface:#ffffff; --ink:#0f172a; --ink2:#475569; --muted:#94a3b8;
@@ -213,8 +218,8 @@ ul.cov li.no::before {{ content:"·"; color:var(--muted); position:absolute; lef
 .full {{ grid-column:1/-1; }}
 footer {{ margin-top:28px; color:var(--muted); font-size:12px; text-align:center; }}
 </style></head><body><div class="wrap">
-<header><h1>◓ PokéAnalytics — Test Health</h1>
-<span class="sub">API · E2E · Contract — project dashboard</span></header>
+<header><h1>◓ PokéAnalytics - Test Health</h1>
+<span class="sub">API · E2E · Contract - project dashboard</span></header>
 <div class="meta">Generated from CI run #{html.escape(str(run))}{(' · ' + sha) if sha else ''} · {html.escape(when)}</div>
 
 <div class="grid">
@@ -264,7 +269,7 @@ footer {{ margin-top:28px; color:var(--muted); font-size:12px; text-align:center
   </div>
 
   <div class="card">
-    <h2>Defects — full lifecycle</h2>
+    <h2>Defects - full lifecycle</h2>
     {bug_rows}
     <div class="row-d" style="margin-top:8px">Found by test design → reported → xfail → fixed → regression guard.</div>
   </div>
@@ -292,7 +297,7 @@ def main() -> None:
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(render(metrics))
-    print(f"Wrote {out} — {metrics['total']} tests, "
+    print(f"Wrote {out} - {metrics['total']} tests, "
           f"{metrics['passed']} passed / {metrics['skipped']} skipped / {metrics['failed']} failed, "
           f"pass rate {metrics['pass_rate']}%")
 
