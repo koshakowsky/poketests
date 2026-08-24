@@ -1,11 +1,11 @@
-# BUG-003 - checkout idempotency key collides across users (500)
+# BUG-003 — checkout idempotency key collides across users (500)
 
 | Field | Value |
 |-------|-------|
-| **Status** | **Fixed** - idempotency scoped per user (composite PK `(user_id, key)`); guard test added |
+| **Status** | **Fixed** — idempotency scoped per user (composite PK `(user_id, key)`); guard test added |
 | **Severity** | Minor (robustness/availability; unhandled `IntegrityError` → 500, cross-tenant coupling) |
-| **Priority** | P2 - low likelihood (client-generated keys), but a 500 and a tenant-isolation smell |
-| **Component** | API - `POST /api/billing/checkout`, idempotency handling |
+| **Priority** | P2 — low likelihood (client-generated keys), but a 500 and a tenant-isolation smell |
+| **Component** | API — `POST /api/billing/checkout`, idempotency handling |
 | **Environment** | pokeanalytics auth build, default Gen I seed; SQLite |
 | **Found by** | Test design (state/idempotency), while automating [TC-BILL-11](../test-cases/api/11-billing-checkout.md); guarded by [TC-BILL-19](../test-cases/api/11-billing-checkout.md#tc-bill-19--idempotency-key-is-scoped-per-user--p2--st--bug-003) |
 | **Automated as** | `tests/test_11_billing.py::test_idempotency_key_is_scoped_per_user` (regression guard) |
@@ -17,7 +17,7 @@ primary key, so keys share one global namespace across all users. But the
 cache-hit lookup is **user-scoped** (`cached.user_id == user.id`). When two
 different users present the same key, the lookup misses (different user), the
 request proceeds to the charge, and the final `INSERT` violates the primary-key
-uniqueness - surfacing as an unhandled `500`.
+uniqueness — surfacing as an unhandled `500`.
 
 Idempotency keys are client-generated, so a real collision is unlikely, but the
 design couples unrelated tenants: one user's key can make another user's request
@@ -52,7 +52,7 @@ User B receives `500`; the server log shows
 
 ## Root cause
 
-[`api/models.py`](../../pokeanalytics/api/models.py) - the key alone is the
+[`api/models.py`](../../pokeanalytics/api/models.py) — the key alone is the
 primary key:
 
 ```python
