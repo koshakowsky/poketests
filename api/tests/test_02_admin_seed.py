@@ -1,13 +1,13 @@
-"""Admin/Seed — test-cases/02-admin-seed.md
+"""Admin/Seed - test-cases/02-admin-seed.md
 
 Architecture: the endpoint's behavior depends on the SERVER CONFIGURATION
 (SEED_TOKEN), so tests declare the required mode via the seed_disabled/
 seed_enabled markers, and the actual stage mode is detected by a probe (the
 seed_mode fixture in conftest). The CI matrix brings the stage up in both
-modes — see .github/workflows/api-tests.yml.
+modes - see .github/workflows/api-tests.yml.
 
 Validation cases (422) are config-independent: FastAPI validates query
-parameters BEFORE the handler code, i.e. before the token check — so they
+parameters BEFORE the handler code, i.e. before the token check - so they
 run in any job.
 """
 
@@ -21,6 +21,20 @@ import pytest
 def test_seed_disabled_without_server_token(api):
     """TC-SEED-01 (DT row 1): SEED_TOKEN not set -> 403 for everyone."""
     r = api.post("admin/seed")
+    assert r.status_code == 403
+    assert r.json()["detail"] == "Seeding is disabled"
+
+
+@pytest.mark.p2
+@pytest.mark.seed_disabled
+def test_empty_server_token_stays_disabled(api):
+    """TC-SEED-08 (DT row 1b): an empty SEED_TOKEN must read as "disabled".
+
+    Sending an empty header value here is the dangerous pair: relaxing the guard
+    from `if not SEED_TOKEN` to `if SEED_TOKEN is None` would make it match the
+    empty secret and open seeding to everyone.
+    """
+    r = api.post("admin/seed", headers={"X-Seed-Token": ""})
     assert r.status_code == 403
     assert r.json()["detail"] == "Seeding is disabled"
 
@@ -76,19 +90,14 @@ def test_seed_max_pokemon_non_numeric(api):
 def test_seed_run_populates_database(api, seed_token):
     """TC-SEED-05 (DT row 4): a correct token starts real seeding.
 
-    DESTRUCTIVE + external network (PokeAPI): excluded from the default run
-    (restricted marker), executed on an isolated stage with an empty DB and
-    POKETESTS_SKIP_DATA_CANARY=1 (the data canary requires 151, but here the
-    DB is empty by design).
-
-    The ST-check oracle is polling with a deadline, not a fixed sleep: a
-    background task is not obligated to finish within a guessed number of
-    seconds.
+    Destructive + hits the live PokeAPI, so it is restricted-marked and runs on
+    an isolated empty stage. Polls with a deadline rather than sleeping: a
+    background task has no obligation to finish in a guessed number of seconds.
     """
     total_before = api.get("pokemon/", params={"limit": 1}).json()["total"]
     if total_before:
         pytest.skip(
-            f"DB already holds {total_before} records — this test is designed "
+            f"DB already holds {total_before} records - this test is designed "
             f"for an empty isolated stage (otherwise the 'data appeared' oracle "
             f"is blind)"
         )
@@ -112,5 +121,5 @@ def test_seed_run_populates_database(api, seed_token):
     else:
         pytest.fail("background seeding did not produce 5 records within 180 seconds")
 
-    # Spot-check the content, not just the counter
+        # Spot-check the content, not just the counter
     assert api.get("pokemon/1").json()["name"] == "bulbasaur"
