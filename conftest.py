@@ -8,7 +8,7 @@ from allure_commons.types import Severity
 
 from dataset import PROFILE
 
-pytest_plugins = ["fixtures.users"]
+pytest_plugins = ["fixtures.users"]   # fixtures.billing holds builders, not fixtures
 
 BASE_URL = os.getenv("POKETESTS_BASE_URL", "http://localhost/api")
 
@@ -63,7 +63,7 @@ def canary(api: httpx.Client) -> None:
     Implemented as a session fixture rather than as tests on purpose: a broken
     precondition invalidates the whole run, so it must abort before the suite
     instead of adding three more red results to dozens of noisy failures. The
-    trade-off is that these IDs carry no Allure tag — they are gate, not case.
+    trade-off is that these IDs carry no Allure tag - they are gate, not case.
     """
     try:
         health = api.get("health")
