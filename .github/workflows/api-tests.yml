@@ -259,6 +259,8 @@ jobs:
     permissions:
       pages: write
       id-token: write
+      contents: read
+      actions: read
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -283,22 +285,38 @@ jobs:
           name: allure-results-contract
           path: allure-results
 
-      # E2E lives in a separate workflow (ui-tests). Pull the full-suite
-      # (chromium) results from its latest successful run and merge them in.
-      # Best-effort: the first push before any E2E run has no artifact yet.
-      - name: Merge in E2E results (latest ui-tests run)
-        continue-on-error: true
+      # E2E lives in a separate workflow (ui-tests), so its results have to be
+      # pulled in. Prefer the run for THIS commit; if the browser matrix has not
+      # finished yet, fall back to the newest successful one and say so.
+      - name: Merge in E2E results (ui-tests)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          rid=$(gh run list --workflow=ui-tests.yml --branch=main --status=success \
-                  --limit=1 --json databaseId --jq '.[0].databaseId' || true)
-          if [ -n "$rid" ]; then
-            echo "Merging E2E results from ui-tests run $rid"
-            gh run download "$rid" -n allure-results-e2e-chromium -D allure-results || \
-              echo "no chromium E2E artifact on run $rid"
+          set -euo pipefail
+          runs=$(gh run list --workflow=ui-tests.yml --branch=main --limit=20 \
+                   --json databaseId,headSha,conclusion)
+
+          rid=$(jq -r --arg sha "$GITHUB_SHA" \
+                '[.[] | select(.headSha == $sha and .conclusion == "success")][0].databaseId // empty' <<<"$runs")
+          scope="this commit"
+          if [ -z "$rid" ]; then
+            rid=$(jq -r '[.[] | select(.conclusion == "success")][0].databaseId // empty' <<<"$runs")
+            scope="an earlier commit (ui-tests for this one had not finished)"
+          fi
+
+          if [ -z "$rid" ]; then
+            echo "::warning::No successful ui-tests run found - publishing without the E2E layer."
+            echo "- **E2E results:** none (no successful ui-tests run yet)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          before=$(ls allure-results/*-result.json 2>/dev/null | wc -l)
+          if gh run download "$rid" -n allure-results-e2e-chromium -D allure-results; then
+            after=$(ls allure-results/*-result.json 2>/dev/null | wc -l)
+            echo "- **E2E results:** merged $((after - before)) from ui-tests run $rid ($scope)" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "no successful ui-tests run yet — skipping E2E merge"
+            echo "::warning::Could not download the E2E artifact from run $rid (expired, or missing actions:read)."
+            echo "- **E2E results:** download failed for run $rid" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       # Trends (pass/fail, duration over runs) require the previous report's
@@ -337,6 +355,25 @@ jobs:
         run: python3 tools/build_dashboard.py allure-results site/index.html
         env:
           BUILD_TIME: ${{ github.event.head_commit.timestamp }}
+
+      # Which layers actually made it into the report. A missing E2E layer once
+      # went unnoticed for several runs; this puts the answer on the run page.
+      - name: Report layer breakdown
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import collections, glob, json
+          counts = collections.Counter()
+          for path in glob.glob("allure-results/*-result.json"):
+              with open(path, encoding="utf-8") as fh:
+                  labels = json.load(fh).get("labels", [])
+              counts[next((l["value"] for l in labels if l["name"] == "parentSuite"), "unlabelled")] += 1
+          print("| Layer | Tests |")
+          print("|-------|-------|")
+          for layer in ("API", "Contract", "E2E"):
+              print(f"| {layer} | {counts.get(layer, 0)} |")
+          if not counts.get("E2E"):
+              print("\n> :warning: no E2E results in this report")
+          PY
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
