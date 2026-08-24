@@ -8,7 +8,8 @@ from playwright.sync_api import expect
 def test_page_loads_table_and_charts(analytics_page):
     """E2E-ANL-01: table populated and all three charts render."""
     analytics_page.open()
-    expect(analytics_page.grid_rows.first).to_be_visible()
+    expect(analytics_page.grid).to_be_visible()
+    expect(analytics_page.grid_rows).not_to_have_count(0)
     for name in ("avg-total", "by-type", "by-generation"):
         expect(analytics_page.chart(name)).to_be_visible()
 

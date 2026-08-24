@@ -11,7 +11,8 @@ def test_pick_target_renders_card_table_radar(similar_page):
     similar_page.pick("bulbasaur")
     expect(similar_page.target_card).to_be_visible()
     expect(similar_page.target_card).to_contain_text("bulbasaur")
-    expect(similar_page.grid_rows.first).to_be_visible()
+    expect(similar_page.grid).to_be_visible()
+    expect(similar_page.grid_rows).not_to_have_count(0)
     expect(similar_page.radar).to_be_visible()
 
 

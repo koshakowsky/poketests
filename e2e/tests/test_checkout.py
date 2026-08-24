@@ -33,7 +33,9 @@ def test_full_upgrade_journey_unlocks_premium(free_browser, checkout_page, accou
     expect(account_page.account_tier).to_have_text(PREMIUM)
 
     account_page.page.goto(f"{base_url}/analytics")
-    expect(account_page.page.get_by_test_id("analytics-grid").locator(".ag-row").first).to_be_visible()
+    grid = account_page.page.get_by_test_id("analytics-grid")
+    expect(grid).to_be_visible()
+    expect(grid.locator(".ag-row")).not_to_have_count(0)
     expect(account_page.page.get_by_test_id("upgrade-prompt")).to_have_count(0)
 
 

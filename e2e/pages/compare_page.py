@@ -33,6 +33,15 @@ class ComparePage(BasePage):
         self.run_button.click()
 
     @property
+    def grid(self) -> Locator:
+        """The grid container. Assertions target this rather than an individual
+        row: ag-grid rows are absolutely positioned, transformed and recycled,
+        so "is the first row visible" tests the virtualisation internals, not
+        the product - and Linux WebKit reports them hidden intermittently.
+        """
+        return self.page.get_by_test_id("compare-grid")
+
+    @property
     def grid_rows(self) -> Locator:
         return self.page.get_by_test_id("compare-grid").locator(".ag-row")
 

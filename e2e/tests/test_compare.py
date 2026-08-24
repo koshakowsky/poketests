@@ -13,7 +13,8 @@ def test_compare_two_renders_table_and_radar(compare_page):
     expect(compare_page.chips).to_have_count(2)
 
     compare_page.run()
-    expect(compare_page.grid_rows.first).to_be_visible()
+    expect(compare_page.grid).to_be_visible()
+    expect(compare_page.grid_rows).not_to_have_count(0)
     expect(compare_page.radar).to_be_visible()
 
 
