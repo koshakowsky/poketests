@@ -1,4 +1,4 @@
-"""E2E · Select page — test-cases/e2e/02-search.md"""
+"""E2E · Select page - test-cases/e2e/02-search.md"""
 
 import pytest
 from playwright.sync_api import expect
@@ -8,7 +8,7 @@ from playwright.sync_api import expect
 def test_default_results_load(search_page):
     """E2E-SRCH-01: default grid loads, total 151, first row is mewtwo (sort desc).
 
-    We don't assert the row *count* — ag-grid virtualizes, so only visible rows
+    We don't assert the row *count* - ag-grid virtualizes, so only visible rows
     are in the DOM. We assert the counter and the top row instead.
     """
     search_page.open()
@@ -21,7 +21,7 @@ def test_filter_by_name_narrows_grid(search_page):
     """E2E-SRCH-02: name filter narrows results.
 
     The input debounces ~350 ms; `to_have_text`/`to_have_count` auto-retry
-    until the debounced fetch lands — no sleep.
+    until the debounced fetch lands - no sleep.
     """
     search_page.open()
     search_page.filter_by_name("char")
@@ -93,7 +93,7 @@ def test_reset_filters(search_page):
 def test_api_failure_shows_error_banner(search_page, page):
     """E2E-SRCH-08: a failing API surfaces the error banner; the app survives.
 
-    Driven by request interception — unreachable against the real green stack.
+    Driven by request interception - unreachable against the real green stack.
     """
     page.route("**/api/pokemon/**", lambda route: route.fulfill(
         status=500, content_type="application/json", body='{"detail": "boom"}'))

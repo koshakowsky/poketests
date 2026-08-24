@@ -1,4 +1,4 @@
-"""E2E · Authentication — test-cases/e2e/06-auth.md"""
+"""E2E · Authentication - test-cases/e2e/06-auth.md"""
 
 import re
 import uuid

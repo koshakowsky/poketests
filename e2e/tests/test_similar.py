@@ -1,4 +1,4 @@
-"""E2E · Similar page — test-cases/e2e/05-similar.md"""
+"""E2E · Similar page - test-cases/e2e/05-similar.md"""
 
 import pytest
 from playwright.sync_api import expect
@@ -20,7 +20,7 @@ def test_similar_top_is_close_relative(similar_page):
     """E2E-SIM-02: the UI presents the highest match first (a close relative).
 
     Ordering correctness is API-tested; here we confirm the UI shows it in
-    order — bulbasaur's top match is its evolution, ivysaur.
+    order - bulbasaur's top match is its evolution, ivysaur.
     """
     similar_page.open()
     similar_page.pick("bulbasaur")

@@ -188,7 +188,7 @@ class EffectivenessResponse(StrictModel):
     defending: list[EffectivenessRow]
 
 
-# Auth — `extra="forbid"` is the structural security oracle: a leaked
+# Auth - `extra="forbid"` is the structural security oracle: a leaked
 # `hashed_password`/`password` field fails these (TC-AUTH-15).
 
 class UserOut(StrictModel):
@@ -202,7 +202,7 @@ class TokenResponse(StrictModel):
     token_type: str
 
 
-# Billing — likewise forbids a full `card_number`/`cvc` ever appearing
+# Billing - likewise forbids a full `card_number`/`cvc` ever appearing
 # (TC-BILL-17). `current_period_end` arrives as an ISO datetime string.
 
 class PlanOut(StrictModel):

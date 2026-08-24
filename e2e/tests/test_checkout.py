@@ -1,4 +1,4 @@
-"""E2E · Checkout & subscription — test-cases/e2e/07-checkout.md"""
+"""E2E · Checkout & subscription - test-cases/e2e/07-checkout.md"""
 
 import re
 from datetime import datetime, timezone

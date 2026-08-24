@@ -1,11 +1,11 @@
-"""Contract — schemathesis against the live OpenAPI schema (README pyramid).
+"""Contract - schemathesis against the live OpenAPI schema (README pyramid).
 
 Every operation is fuzzed with schema-derived data and the response is checked
 against the schema. We run a deliberate subset of checks:
 
-- not_a_server_error — the headline: no input should ever yield a 500.
-- response_schema_conformance — a documented response body matches the schema.
-- content_type_conformance — the response content type is one the schema allows.
+- not_a_server_error - the headline: no input should ever yield a 500.
+- response_schema_conformance - a documented response body matches the schema.
+- content_type_conformance - the response content type is one the schema allows.
 
 status_code_conformance is intentionally NOT run: FastAPI only auto-documents
 200/201 and the 422 validation error, not the business codes (401/403/404/409),

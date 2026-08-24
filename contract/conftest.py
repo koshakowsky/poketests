@@ -2,7 +2,7 @@
 
 Loads the live OpenAPI schema for schemathesis and provides a premium bearer so
 the gated operations are fuzzed as an authorized caller (not just bounced at
-401). The shared root conftest still applies — its canary is a valid
+401). The shared root conftest still applies - its canary is a valid
 precondition here too.
 """
 
