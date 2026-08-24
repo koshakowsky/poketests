@@ -1,4 +1,4 @@
-# RBAC — role/tier-based access control matrix
+# RBAC - role/tier-based access control matrix
 
 Authorization spans every endpoint, so it is specified once here rather than
 duplicated per file. The auth **endpoints** are in [10-auth.md](10-auth.md);
@@ -18,13 +18,33 @@ Endpoints fall into three access classes:
 | **premium** | premium | `GET /analytics/categories`, `GET /analytics/type-distribution`, `GET /analytics/generation-stats`, `GET /pokemon/{id}/similar`, `POST /compare/` |
 | **admin** | admin | `GET /admin/users` |
 
-## The central oracle — 401 vs 403
+## Scope note - object-level authorization (BOLA/IDOR) is N/A here
+
+OWASP API Security Top 10 ranks **API1: Broken Object Level Authorization**
+first, so its absence from this file is a deliberate finding, not an oversight.
+BOLA requires an endpoint that takes an object identifier belonging to a
+specific user and returns that object. This API has none: every user-scoped
+route (`/auth/me`, `/billing/subscription`, `/billing/checkout`,
+`/billing/cancel`) derives its subject from the **token**, never from a path or
+query parameter, so there is no identifier for an attacker to swap. The only
+identifiers in paths (`/pokemon/{id}`, `/types/{id}`) address public reference
+data owned by nobody.
+
+`GET /admin/users` is the closest thing to a cross-tenant read, and it is
+covered as a **function**-level check (API5) by TC-RBAC-06.
+
+**Consequence for future work:** the first endpoint that accepts a user or
+subscription id in its path - say `GET /billing/subscription/{id}` - introduces
+the BOLA class immediately and needs the standard case: user A authenticates and
+requests user B's object, expecting `404`/`403` rather than B's data.
+
+## The central oracle - 401 vs 403
 
 The distinction is the whole point of RBAC and is tested explicitly:
 
-- **401 Unauthorized** — *no / invalid credentials*. The server can't identify
+- **401 Unauthorized** - *no / invalid credentials*. The server can't identify
   the caller (missing header, malformed/expired/tampered token).
-- **403 Forbidden** — *identified, but not allowed*. A valid token whose tier is
+- **403 Forbidden** - *identified, but not allowed*. A valid token whose tier is
   below the requirement.
 
 Getting these backwards (403 for anonymous, or 401 for a logged-in free user) is
@@ -37,44 +57,44 @@ a classic auth bug; TC-RBAC-07 pins the split.
 | TC-RBAC-03 | Premium endpoints as free → 403 | P0 | EP |
 | TC-RBAC-04 | Premium endpoints as premium → 200 | P0 | EP |
 | TC-RBAC-05 | Premium endpoints as admin → 200 (rank ≥) | P1 | EP/DT |
-| TC-RBAC-06 | Admin endpoint — full role row | P1 | DT |
+| TC-RBAC-06 | Admin endpoint - full role row | P1 | DT |
 | TC-RBAC-07 | 401-vs-403 distinction is correct | P0 | DT |
 | TC-RBAC-08 | Tier is read live (upgrade/cancel take effect) | P1 | ST |
 | TC-RBAC-09 | Endpoint × role access matrix | P1 | DT |
 
 ---
 
-### TC-RBAC-01 — Public endpoints, anonymous · P0 · EP
+### TC-RBAC-01 - Public endpoints, anonymous · P0 · EP
 **Request (no `Authorization`):** each public endpoint.
-**Expected:** `200` (or the endpoint's own non-auth code — e.g.
+**Expected:** `200` (or the endpoint's own non-auth code - e.g.
 `GET /pokemon/999999` → `404`). Access control never intervenes; auth is not
-required. Pokémon **list and detail are intentionally public** — only the
+required. Pokémon **list and detail are intentionally public** - only the
 *analytical* features are gated.
 
-### TC-RBAC-02 — Premium, anonymous → 401 · P0 · EP
+### TC-RBAC-02 - Premium, anonymous → 401 · P0 · EP
 **Request (no token):** `GET /analytics/type-distribution`,
 `GET /pokemon/1/similar`, `POST /compare/` `{"pokemon_ids":[1,4]}`.
-**Expected:** `401` for each; `WWW-Authenticate: Bearer` present. Not 403 —
+**Expected:** `401` for each; `WWW-Authenticate: Bearer` present. Not 403:
 the caller is unidentified.
 
-### TC-RBAC-03 — Premium as free → 403 · P0 · EP
+### TC-RBAC-03 - Premium as free → 403 · P0 · EP
 **Precondition:** a logged-in **free** user.
 **Request:** the same three premium endpoints, with the free user's token.
 **Expected:** `403`; `body.detail == "Requires premium tier"`. Identified but
 under-privileged.
 
-### TC-RBAC-04 — Premium as premium → 200 · P0 · EP
+### TC-RBAC-04 - Premium as premium → 200 · P0 · EP
 **Precondition:** a **premium** user (via checkout, TC-BILL-03).
 **Request:** the three premium endpoints.
-**Expected:** `200` — the feature is unlocked.
+**Expected:** `200` - the feature is unlocked.
 
-### TC-RBAC-05 — Premium as admin → 200 · P1 · EP/DT
+### TC-RBAC-05 - Premium as admin → 200 · P1 · EP/DT
 **Precondition:** the seeded **admin** user.
 **Request:** the three premium endpoints.
 **Expected:** `200`. Admin outranks premium (`require_tier` is a *minimum*, not
-equality) — a higher tier is never locked out of a lower requirement.
+equality) - a higher tier is never locked out of a lower requirement.
 
-### TC-RBAC-06 — Admin endpoint, full role row · P1 · DT
+### TC-RBAC-06 - Admin endpoint, full role row · P1 · DT
 `GET /api/admin/users` requires the admin tier.
 
 | Caller | Expected |
@@ -84,7 +104,7 @@ equality) — a higher tier is never locked out of a lower requirement.
 | premium | `403` |
 | admin | `200`, a list of `{id, email, tier}` |
 
-### TC-RBAC-07 — 401-vs-403 distinction · P0 · DT
+### TC-RBAC-07 - 401-vs-403 distinction · P0 · DT
 The crux, isolated on one representative premium endpoint
 (`GET /analytics/type-distribution`):
 
@@ -95,8 +115,8 @@ The crux, isolated on one representative premium endpoint
 | valid token, **free** tier | `403` | identified, under-privileged |
 | valid token, **premium**/admin | `200` | allowed |
 
-### TC-RBAC-08 — Tier read live from DB · P1 · ST
-The tier is **not** baked into the token — it is read from the DB per request,
+### TC-RBAC-08 - Tier read live from DB · P1 · ST
+The tier is **not** baked into the token - it is read from the DB per request,
 so tier changes take effect on the **same** token without re-login.
 
 **Steps (one token throughout):**
@@ -107,7 +127,7 @@ so tier changes take effect on the **same** token without re-login.
 **Expected:** access follows the DB tier immediately at each step. Cross-refs
 TC-BILL-03 / TC-BILL-13.
 
-### TC-RBAC-09 — Endpoint × role access matrix · P1 · DT
+### TC-RBAC-09 - Endpoint × role access matrix · P1 · DT
 The consolidated authorization contract. Rows = representative endpoints,
 columns = caller identity. Cell = expected status.
 
