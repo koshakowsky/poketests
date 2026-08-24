@@ -1,5 +1,0 @@
-# Contract layer: schemathesis fuzzes every operation from the live OpenAPI
-# schema. Reuses the API suite's deps for the shared root conftest (canary,
-# Allure hook, httpx client).
--r ../api/requirements.txt
-schemathesis<4
