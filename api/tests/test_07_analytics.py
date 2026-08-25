@@ -78,7 +78,7 @@ def test_type_distribution_percentages(premium_api):
     assert sum(counts) > PROFILE.total, "dual-type pokemon must be double-counted"
 
 
-@pytest.mark.p1
+@pytest.mark.p0
 def test_stat_ranges_structure_and_anchors(api):
     """TC-ANL-06: min <= avg <= max per stat, with exact anchors from the profile.
 
