@@ -43,6 +43,11 @@ jobs:
 
       # Fixture seeding is synchronous at startup: --wait returning healthy
       # already implies "dataset ready" — a single assert replaces polling.
+      # Same per-run-secret pattern as SEED_TOKEN: generated here, handed to
+      # both the stack and the suite, so TC-SEC-03 can forge an expired token.
+      - name: Generate per-run JWT secret
+        run: echo "JWT_SECRET=$(uuidgen)" >> "$GITHUB_ENV"
+
       - name: Start SUT stack (no token, hermetic fixture seed)
         working-directory: sut
         run: docker compose up -d --build --wait
@@ -69,6 +74,7 @@ jobs:
         run: pytest api -n auto --alluredir=allure-results
         env:
           POKETESTS_BASE_URL: http://localhost/api
+          POKETESTS_JWT_SECRET: ${{ env.JWT_SECRET }}
 
       - name: Upload Allure results
         if: always()
@@ -100,6 +106,11 @@ jobs:
       - name: Generate per-run seed token
         run: echo "SEED_TOKEN=$(uuidgen)" >> "$GITHUB_ENV"
 
+      # Same per-run-secret pattern as SEED_TOKEN: generated here, handed to
+      # both the stack and the suite, so TC-SEC-03 can forge an expired token.
+      - name: Generate per-run JWT secret
+        run: echo "JWT_SECRET=$(uuidgen)" >> "$GITHUB_ENV"
+
       # Hermetic seeding made the full suite cheap in this config too, so we
       # run everything: the seed_disabled case skips itself via the probe.
       - name: Start SUT stack (token configured, hermetic fixture seed)
@@ -128,6 +139,7 @@ jobs:
         run: pytest api -n auto --alluredir=allure-results
         env:
           POKETESTS_BASE_URL: http://localhost/api
+          POKETESTS_JWT_SECRET: ${{ env.JWT_SECRET }}
 
       - name: Upload Allure results
         if: always()
