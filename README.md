@@ -7,10 +7,11 @@
 
 Test design **and** automation for the
 [**pokeanalytics**](https://github.com/koshakowsky/pokeanalytics) system under
-test. Two peer suites over one SUT: an **API** suite (pytest + httpx) and an
-**E2E** suite (Playwright for Python), both derived from the test-case catalog
-in [test-cases/](test-cases/), where every case is annotated with the
-design technique it applies, a priority and an expected result.
+test. Three peer suites over one SUT - **API** (pytest + httpx), **contract**
+(schemathesis against the live OpenAPI schema) and **E2E** (Playwright for
+Python) - the first and last derived from the test-case catalog in
+[test-cases/](test-cases/), where every case is annotated with the design
+technique it applies, a priority and an expected result.
 
 **At a glance:** 175+ designed cases with **100% catalog→automation
 traceability** (every `TC-*` id is executed by a named test) · techniques
