@@ -39,7 +39,7 @@ def test_similar_limit_boundaries(premium_api, limit, expected_status, expected_
         assert len(r.json()) == expected_len
 
 
-@pytest.mark.p2
+@pytest.mark.p1
 def test_similar_score_invariants(premium_api):
     """TC-SIM-02, TC-SIM-06: score is a bounded, non-increasing similarity and
     matching_types can only contain the target's own types."""

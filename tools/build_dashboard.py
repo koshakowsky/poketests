@@ -25,6 +25,9 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from fixtures.endpoint_coverage import resolve as resolve_operations
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # --- Narrative constants (intent, not measurement) ---------------------------
@@ -91,6 +94,28 @@ def parse_run(results_dir):
         "pass_rate": round(buckets["passed"] / executed * 100, 1) if executed else 0.0,
         "prios": prios,
         "layers": layers,
+    }
+
+
+def parse_endpoint_coverage(results_dir):
+    """Documented operations vs the ones the suites actually called.
+
+    Recorded at run time by the shared HTTP client (fixtures/endpoint_coverage),
+    one file per xdist worker and per suite, unioned here.
+    """
+    hits, documented = set(), set()
+    for path in glob.glob(os.path.join(results_dir, "endpoint-coverage-*.json")):
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        hits |= {tuple(x) for x in data.get("hits", [])}
+        documented |= {tuple(x) for x in data.get("documented", [])}
+    if not documented:
+        return None
+    covered = resolve_operations(hits, documented)
+    return {
+        "covered": covered,
+        "documented": documented,
+        "missing": sorted(documented - covered),
     }
 
 
@@ -169,7 +194,7 @@ def bar_row(label, done, total, extra=""):
             f'<span class="rb-n">{done}/{total}</span>{extra}</div>')
 
 
-def render(run, designed, techniques, automated, bugs):
+def render(run, designed, techniques, automated, bugs, endpoints):
     build = os.getenv("GITHUB_RUN_NUMBER", "local")
     sha = (os.getenv("GITHUB_SHA", "") or "")[:7]
     when = os.getenv("BUILD_TIME") or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -218,6 +243,28 @@ def render(run, designed, techniques, automated, bugs):
         f'<span class="pill {"good" if b["status"] == "fixed" else "warn"}">{esc(b["status"])}</span></div>'
         for b in bugs
     )
+
+    if endpoints:
+        n_cov, n_doc = len(endpoints["covered"]), len(endpoints["documented"])
+        pct = round(n_cov / n_doc * 100) if n_doc else 0
+        missing = "".join(
+            f'<div class="bug"><span class="bug-id">{esc(m)}</span>'
+            f'<span class="bug-t">{esc(p)}</span></div>'
+            for m, p in endpoints["missing"][:8]
+        )
+        endpoint_card = f"""
+  <div class="card">
+    <h2>Endpoint coverage</h2>
+    <p class="note">Documented operations the suites actually called. Recorded by the
+      shared HTTP client, not maintained by hand - an endpoint added to the SUT and
+      never tested shows up here by itself.</p>
+    <div class="hero {'good' if pct == 100 else 'warn'}"><span class="big">{pct}%</span>
+      <span class="u">{n_cov} of {n_doc} operations</span></div>
+    {'<p class="note" style="margin:14px 0 4px">Not exercised:</p>' + missing if missing else
+     '<p class="note" style="margin:14px 0 0">Every documented operation is exercised.</p>'}
+  </div>"""
+    else:
+        endpoint_card = ""
 
     chips = "".join(f'<span class="chip">{esc(x)}</span>' for x in STACK)
     links = "".join(f'<a class="lnk" href="{esc(h)}">{esc(t)} →</a>' for t, h in LINKS)
@@ -353,6 +400,8 @@ footer {{ margin-top:28px; color:var(--muted); font-size:12px; text-align:center
     {technique_rows}
   </div>
 
+  {endpoint_card}
+
   <div class="card">
     <h2>Executed by priority</h2>
     <p class="note">P0 is the smoke set that gates a release.</p>
@@ -392,18 +441,21 @@ def main():
     out = sys.argv[2] if len(sys.argv) > 2 else "index.html"
 
     run = parse_run(results_dir)
+    endpoints = parse_endpoint_coverage(results_dir)
     designed, techniques = parse_catalog()
     automated = parse_automation()
     bugs = parse_bugs()
 
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
     with open(out, "w", encoding="utf-8") as fh:
-        fh.write(render(run, designed, techniques, automated, bugs))
+        fh.write(render(run, designed, techniques, automated, bugs, endpoints))
 
     all_designed = {c for ids in designed.values() for c in ids}
     print(f"Wrote {out} - {run['total']} tests ({run['pass_rate']}% pass), "
           f"{len(all_designed & automated)}/{len(all_designed)} cases traced, "
-          f"{len(techniques)} techniques, {len(bugs)} defects")
+          f"{len(techniques)} techniques, {len(bugs)} defects, "
+          f"{len(endpoints['covered']) if endpoints else 0}/"
+          f"{len(endpoints['documented']) if endpoints else 0} operations")
 
 
 if __name__ == "__main__":

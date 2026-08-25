@@ -18,6 +18,7 @@ import pytest
 
 from dataset import ADMIN
 from fixtures.billing import build_card
+from fixtures.endpoint_coverage import client as http_client
 
 DEFAULT_PASSWORD = "password123"
 
@@ -133,7 +134,7 @@ def premium_token(api) -> str:
 
 @pytest.fixture(scope="session")
 def premium_api(api, premium_token):
-    with httpx.Client(
+    with http_client(
         base_url=api.base_url,
         timeout=api.timeout,
         follow_redirects=False,

@@ -12,4 +12,9 @@ venv/
 # OS
 .DS_Store
 
-
+# Test artefacts
+allure-results/
+allure-report/
+.pytest_cache/
+test-results/
+site/

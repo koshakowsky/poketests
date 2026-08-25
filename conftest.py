@@ -7,6 +7,7 @@ import pytest
 from allure_commons.types import Severity
 
 from dataset import PROFILE
+from fixtures import endpoint_coverage
 
 pytest_plugins = ["fixtures.users"]   # fixtures.billing holds builders, not fixtures
 
@@ -48,7 +49,7 @@ def pytest_collection_modifyitems(items):
 
 @pytest.fixture(scope="session")
 def api() -> httpx.Client:
-    with httpx.Client(
+    with endpoint_coverage.client(
         base_url=BASE_URL.rstrip("/") + "/",
         timeout=10.0,
         follow_redirects=False,
@@ -95,6 +96,9 @@ def canary(api: httpx.Client) -> None:
         )
     except ValueError:
         schema_ok = False
+    if schema_ok:
+        endpoint_coverage.record_documented(openapi.json())
+
     if not schema_ok:
         import warnings
 
@@ -103,3 +107,8 @@ def canary(api: httpx.Client) -> None:
             f"(status={openapi.status_code}, "
             f"content-type={openapi.headers.get('content-type')})"
         )
+
+
+def pytest_sessionfinish(session):
+    """Persist measured endpoint coverage alongside the Allure results."""
+    endpoint_coverage.write(session.config)
