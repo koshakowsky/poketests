@@ -8,7 +8,7 @@ import pytest
 from pydantic import TypeAdapter
 
 from dataset import CARDS
-from fixtures.billing import build_card, future_expiry
+from fixtures.billing import build_card
 from schemas import PlanOut, SubscriptionOut
 
 PLAN_LIST = TypeAdapter(list[PlanOut])
