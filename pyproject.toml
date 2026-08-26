@@ -29,6 +29,10 @@ e2e = [
     "axe-playwright-python>=0.1",   # accessibility audit
 ]
 
+dashboard = [
+    "httpx>=0.27",
+]
+
 [tool.pytest.ini_options]
 # Peer suites: api/, contract/, e2e/. A bare `pytest` runs the API suite;
 # the other two are opt-in by path (they need schemathesis / browsers).
