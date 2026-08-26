@@ -362,7 +362,10 @@ jobs:
       # report under /allure/.
       - name: Generate Allure HTML report
         run: npx --yes allure-commandline generate allure-results --clean -o site/allure
-
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+      - name: Install dashboard dependencies
+        run: pip install --group dashboard
       - name: Build project-health dashboard
         run: python3 tools/build_dashboard.py allure-results site/index.html
         env:
